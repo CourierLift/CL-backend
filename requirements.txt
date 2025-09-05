@@ -9,3 +9,4 @@ passlib[bcrypt]
 python-multipart
 requests
 pydantic
+python-jose[cryptography]==3.3.0

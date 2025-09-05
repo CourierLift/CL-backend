@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 from passlib.context import CryptContext
-import jwt, os
+from jose import jwt
+import os
+
 
 # This module provides password hashing and JWT token creation/decoding
 # for the Courier Lifts API. It replaces the older auth.py implementation.
