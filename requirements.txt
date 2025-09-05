@@ -1,0 +1,11 @@
+﻿fastapi
+uvicorn[standard]
+sqlalchemy
+databases
+psycopg[binary]
+aiosqlite
+python-jose[cryptography]
+passlib[bcrypt]
+python-multipart
+requests
+pydantic
