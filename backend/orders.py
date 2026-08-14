@@ -1,222 +1,34 @@
-"""Order management routes and helpers for the Courier Lifts API.
+"""Canonical quote and marketplace order routes."""
 
-This module centralizes all quote and order functionality.  It computes quotes
-for delivery based on pseudo-geocoded addresses and various multipliers,
-creates new orders, lists a user's orders, and updates the status of an order.
+from datetime import datetime, timezone
 
-All routes in this module require a valid JWT for authentication and depend
-on the `deps_jwt.get_current_user` dependency to resolve the current user.
-"""
-
-from fastapi import APIRouter, Depends, HTTPException, status, Body
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import update
 from sqlalchemy.orm import Session
-from typing import List, Optional
-from math import sqrt
 
 from .database import get_db
-from .models import Order, OrderStatus, User, UserRole
-from .schemas import QuoteRequest, QuoteResponse, OrderCreate, OrderOut, StatusUpdate
 from .deps_jwt import get_current_user
-
-router = APIRouter(prefix="", tags=["orders"])
-
-
-def fake_geocode(addr: str) -> Optional[tuple[float, float]]:
-    if not addr or not addr.strip():
-        return None
-    total = sum(ord(c) for c in addr)
-    return (30.0 + (total % 5000) / 100.0, -100.0 - (total % 5000) / 100.0)
-
-
-def haversine_like(pu: tuple[float, float], do: tuple[float, float]) -> float:
-    (a, b), (c, d) = pu, do
-    return max(0.5, sqrt((a - c) ** 2 + (b - d) ** 2) * 69.0)
-
-
-def vehicle_multiplier(vehicle: str) -> float:
-    return {
-        "bike": 1.0,
-        "car": 1.2,
-        "van": 1.5,
-        "truck": 2.0,
-    }.get(vehicle, 1.2)
+from .models import Order, OrderStatus, User, UserRole
+from .quote_engine import QuoteResult, estimate_quote
+from .schemas import (
+    AddressQuoteRequest,
+    OrderCreate,
+    OrderCreateCompat,
+    OrderOut,
+    QuoteEstimateResponse,
+    QuoteRequest,
+    QuoteResponse,
+    StatusUpdate,
+)
+from .services.eligibility import evaluate_courier_eligibility
+from .services.tracking import OrderEventType, make_order_event, tracking_service
+from .settings import settings
 
 
-def item_tier(item_type: str) -> str:
-    t = (item_type or "").lower()
-    if any(k in t for k in ["fragile", "glass", "art"]):
-        return "fragile"
-    if any(k in t for k in ["food", "meal", "grocery"]):
-        return "perishable"
-    if any(k in t for k in ["electronics", "laptop", "tv"]):
-        return "electronics"
-    return "standard"
+router = APIRouter(tags=["orders"])
+CREATOR_ROLES = {UserRole.customer, UserRole.merchant}
 
-
-def compute_quote(data: QuoteRequest) -> QuoteResponse:
-    pu = fake_geocode(getattr(data, "pickup_addr", "")) if hasattr(data, "pickup_addr") else None
-    do = fake_geocode(getattr(data, "dropoff_addr", "")) if hasattr(data, "dropoff_addr") else None
-    if pu is None and all(hasattr(data, k) for k in ("pickup_lat", "pickup_lng", "dropoff_lat", "dropoff_lng")):
-        pu = (float(data.pickup_lat), float(data.pickup_lng))
-        do = (float(data.dropoff_lat), float(data.dropoff_lng))
-    if pu is None or do is None:
-        raise HTTPException(status_code=400, detail="Could not geocode addresses")
-
-    miles = haversine_like(pu, do)
-    base = 3.5
-    per_mile = 1.75 * vehicle_multiplier(data.vehicle)
-    qty_factor = max(1.0, (data.quantity or 1) * 0.9)
-    weight_factor = 1.0 + min(0.8, (data.weight_lb or 0.0) / 100.0)
-    size_factor = 1.0 + min(
-        0.6,
-        ((data.length_in or 12) * (data.width_in or 8) * (data.height_in or 6)) / 1728.0 * 0.2,
-    )
-
-    price = round((base + miles * per_mile) * qty_factor * weight_factor * size_factor, 2)
-    eta = max(10, int(miles * 3))
-    return QuoteResponse(price=price, eta=eta, miles=round(miles, 2), tier=item_tier(getattr(data, "item_type", "")))
-
-
-@router.post("/quote", response_model=QuoteResponse)
-def quote_price(payload: QuoteRequest) -> QuoteResponse:
-    return compute_quote(payload)
-
-
-@router.post("/quote/estimate")
-def quote_estimate(payload: dict = Body(...)):
-    origin = str(payload.get("origin", "")).strip()
-    destination = str(payload.get("destination", "")).strip()
-    weight_kg = float(payload.get("weight_kg") or 0)
-    vehicle = (payload.get("vehicle") or "car").lower()
-    item_type = (payload.get("item_type") or "standard").lower()
-
-    class _Q: pass
-    q = _Q()
-    q.pickup_addr = origin
-    q.dropoff_addr = destination
-    q.vehicle = vehicle
-    q.item_type = item_type
-    q.quantity = 1
-    q.weight_lb = weight_kg * 2.20462
-    q.length_in = 12; q.width_in = 8; q.height_in = 6
-
-    res = compute_quote(q)
-
-    return {
-        "price_total": res.price,
-        "eta_min": res.eta,
-        "miles": res.miles,
-        "tier": res.tier,
-    }
-
-
-@router.post("/orders", response_model=OrderOut, status_code=status.HTTP_201_CREATED)
-def create_order(
-    payload: OrderCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> OrderOut:
-    pu = fake_geocode(getattr(payload, "pickup_addr", "")) if hasattr(payload, "pickup_addr") else None
-    do = fake_geocode(getattr(payload, "dropoff_addr", "")) if hasattr(payload, "dropoff_addr") else None
-    if pu is None and all(hasattr(payload, k) for k in ("pickup_lat", "pickup_lng", "dropoff_lat", "dropoff_lng")):
-        pu = (payload.pickup_lat, payload.pickup_lng)
-        do = (payload.dropoff_lat, payload.dropoff_lng)
-    if pu is None or do is None:
-        raise HTTPException(status_code=400, detail="Invalid pickup/dropoff")
-
-    quote = compute_quote(payload)
-    order = Order(
-        user_id=current_user.id,
-        pickup_lat=pu[0], pickup_lng=pu[1],
-        dropoff_lat=do[0], dropoff_lng=do[1],
-        vehicle=payload.vehicle,
-        item_type=getattr(payload, "item_type", "standard"),
-        quantity=payload.quantity or 1,
-        weight_lb=payload.weight_lb or 0.0,
-        length_in=payload.length_in or 12,
-        width_in=payload.width_in or 8,
-        height_in=payload.height_in or 6,
-        price=quote.price,
-        eta_min=quote.eta,
-        status=OrderStatus.pending,
-    )
-    db.add(order)
-    db.commit()
-    db.refresh(order)
-    return order
-
-
-@router.post("/orders/create_compat", response_model=OrderOut, status_code=status.HTTP_201_CREATED)
-def create_order_compat(
-    payload: dict = Body(...),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> OrderOut:
-    origin = str(payload.get("origin", "")).strip()
-    destination = str(payload.get("destination", "")).strip()
-    if not origin or not destination:
-        raise HTTPException(status_code=422, detail="origin and destination are required")
-
-    vehicle = (payload.get("vehicle") or "car").lower()
-    item_type = (payload.get("item_type") or "standard").lower()
-    quantity = int(payload.get("quantity") or 1)
-    weight_lb = float(payload.get("weight_kg") or 0.0) * 2.20462
-    length_in = float(payload.get("length_in") or 12)
-    width_in  = float(payload.get("width_in")  or 8)
-    height_in = float(payload.get("height_in") or 6)
-
-    pu = fake_geocode(origin)
-    do = fake_geocode(destination)
-    if pu is None or do is None:
-        raise HTTPException(status_code=400, detail="Invalid origin/destination")
-
-    class _Q: pass
-    q = _Q()
-    q.pickup_addr = origin
-    q.dropoff_addr = destination
-    q.vehicle = vehicle
-    q.item_type = item_type
-    q.quantity = quantity
-    q.weight_lb = weight_lb
-    q.length_in = length_in; q.width_in = width_in; q.height_in = height_in
-
-    quote = compute_quote(q)
-
-    order = Order(
-        user_id=current_user.id,
-        pickup_lat=pu[0], pickup_lng=pu[1],
-        dropoff_lat=do[0], dropoff_lng=do[1],
-        vehicle=vehicle,
-        item_type=item_type,
-        quantity=quantity,
-        weight_lb=weight_lb,
-        length_in=length_in,
-        width_in=width_in,
-        height_in=height_in,
-        price=quote.price,
-        eta_min=quote.eta,
-        status=OrderStatus.pending,
-    )
-    db.add(order)
-    db.commit()
-    db.refresh(order)
-    return order
-
-
-@router.get("/orders/mine", response_model=List[OrderOut])
-def list_my_orders(
-    db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-) -> List[OrderOut]:
-    return (
-        db.query(Order)
-        .filter(Order.user_id == current_user.id)
-        .order_by(Order.created_at.desc())
-        .all()
-    )
-
-
-ALLOWED_CHAIN: dict[OrderStatus, set[OrderStatus]] = {
+ALLOWED_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.pending: {OrderStatus.assigned, OrderStatus.canceled},
     OrderStatus.assigned: {OrderStatus.picked_up, OrderStatus.canceled},
     OrderStatus.picked_up: {OrderStatus.delivered},
@@ -225,41 +37,336 @@ ALLOWED_CHAIN: dict[OrderStatus, set[OrderStatus]] = {
 }
 
 
-def can_transition(current: OrderStatus, nxt: OrderStatus) -> bool:
-    return nxt in ALLOWED_CHAIN.get(current, set())
+def can_transition(current: OrderStatus, next_status: OrderStatus) -> bool:
+    return next_status in ALLOWED_TRANSITIONS.get(current, set())
+
+
+def _require_order_creator(user: User) -> None:
+    if user.role not in CREATOR_ROLES:
+        raise HTTPException(
+            status_code=403,
+            detail="Only customers and merchants may create deliveries",
+        )
+
+
+def _require_courier(user: User) -> None:
+    if user.role != UserRole.courier:
+        raise HTTPException(status_code=403, detail="Courier role required")
+
+
+def _coordinate_quote(payload: QuoteRequest) -> QuoteResult:
+    return estimate_quote(
+        pickup=(payload.pickup_lat, payload.pickup_lng),
+        dropoff=(payload.dropoff_lat, payload.dropoff_lng),
+        transportation_mode=payload.vehicle,
+        item_type=payload.item_type,
+        quantity=payload.quantity,
+        weight_lb=payload.weight_lb,
+        length_in=payload.length_in,
+        width_in=payload.width_in,
+        height_in=payload.height_in,
+        weather=payload.weather,
+        traffic=payload.traffic,
+        surge=payload.surge,
+    )
+
+
+def _address_quote(payload: AddressQuoteRequest) -> QuoteResult:
+    return estimate_quote(
+        development_fallback_miles=settings.CL_DEVELOPMENT_FALLBACK_MILES,
+        transportation_mode=payload.vehicle,
+        item_type=payload.item_type,
+        quantity=payload.quantity,
+        weight_lb=payload.weight_kg * 2.2046226218,
+        length_in=payload.length_in,
+        width_in=payload.width_in,
+        height_in=payload.height_in,
+        weather=payload.weather,
+        traffic=payload.traffic,
+        surge=payload.surge,
+    )
+
+
+def _quote_response(result: QuoteResult) -> QuoteResponse:
+    return QuoteResponse(
+        price=result.price_total,
+        eta=result.eta_min,
+        miles=result.miles,
+        tier=result.tier,
+        estimated=result.estimated,
+        distance_source=result.distance_source,
+    )
+
+
+def _estimate_response(result: QuoteResult) -> QuoteEstimateResponse:
+    return QuoteEstimateResponse(
+        price_total=result.price_total,
+        eta_min=result.eta_min,
+        miles=result.miles,
+        tier=result.tier,
+        estimated=result.estimated,
+        distance_source=result.distance_source,
+    )
+
+
+def _tracking_data(order: Order) -> dict[str, object]:
+    return {
+        "status": order.status.value,
+        "creator_id": order.user_id,
+        "assigned_courier_id": order.assigned_courier_id,
+    }
+
+
+@router.post("/quote", response_model=QuoteResponse)
+def quote_price(payload: QuoteRequest) -> QuoteResponse:
+    return _quote_response(_coordinate_quote(payload))
+
+
+@router.post("/quote/estimate", response_model=QuoteEstimateResponse)
+def quote_estimate(payload: AddressQuoteRequest) -> QuoteEstimateResponse:
+    return _estimate_response(_address_quote(payload))
+
+
+@router.post(
+    "/orders",
+    response_model=OrderOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_order(
+    payload: OrderCreate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Order:
+    _require_order_creator(current_user)
+    quote = _coordinate_quote(payload)
+    order = Order(
+        user_id=current_user.id,
+        pickup_lat=payload.pickup_lat,
+        pickup_lng=payload.pickup_lng,
+        dropoff_lat=payload.dropoff_lat,
+        dropoff_lng=payload.dropoff_lng,
+        vehicle=quote.transportation_mode,
+        item_type=payload.item_type.strip().lower(),
+        delivery_requirements=payload.delivery_requirements,
+        quantity=payload.quantity,
+        weight_lb=payload.weight_lb,
+        length_in=payload.length_in,
+        width_in=payload.width_in,
+        height_in=payload.height_in,
+        price=quote.price_total,
+        eta_min=quote.eta_min,
+        distance_miles=quote.miles,
+        distance_estimated=quote.estimated,
+        distance_source=quote.distance_source,
+        weather=payload.weather,
+        traffic=payload.traffic,
+        surge_multiplier=payload.surge,
+        status=OrderStatus.pending,
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    await tracking_service.publish(
+        make_order_event(OrderEventType.created, order.id, **_tracking_data(order))
+    )
+    return order
+
+
+@router.post(
+    "/orders/create_compat",
+    response_model=OrderOut,
+    status_code=status.HTTP_201_CREATED,
+)
+async def create_order_compat(
+    payload: OrderCreateCompat,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Order:
+    _require_order_creator(current_user)
+    quote = _address_quote(payload)
+    order = Order(
+        user_id=current_user.id,
+        origin=payload.origin,
+        destination=payload.destination,
+        vehicle=quote.transportation_mode,
+        item_type=payload.item_type.strip().lower(),
+        delivery_requirements=payload.delivery_requirements,
+        quantity=payload.quantity,
+        weight_lb=payload.weight_kg * 2.2046226218,
+        length_in=payload.length_in,
+        width_in=payload.width_in,
+        height_in=payload.height_in,
+        price=quote.price_total,
+        eta_min=quote.eta_min,
+        distance_miles=quote.miles,
+        distance_estimated=quote.estimated,
+        distance_source=quote.distance_source,
+        weather=payload.weather,
+        traffic=payload.traffic,
+        surge_multiplier=payload.surge,
+        status=OrderStatus.pending,
+    )
+    db.add(order)
+    db.commit()
+    db.refresh(order)
+    await tracking_service.publish(
+        make_order_event(OrderEventType.created, order.id, **_tracking_data(order))
+    )
+    return order
+
+
+@router.get("/orders/mine", response_model=list[OrderOut])
+def list_my_orders(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[Order]:
+    return (
+        db.query(Order)
+        .filter(Order.user_id == current_user.id)
+        .order_by(Order.created_at.desc(), Order.id.desc())
+        .all()
+    )
+
+
+@router.get("/orders/available", response_model=list[OrderOut])
+def list_available_orders(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> list[Order]:
+    _require_courier(current_user)
+    candidates = (
+        db.query(Order)
+        .filter(
+            Order.status == OrderStatus.pending,
+            Order.assigned_courier_id.is_(None),
+        )
+        .order_by(Order.created_at.asc(), Order.id.asc())
+        .all()
+    )
+    return [
+        order
+        for order in candidates
+        if evaluate_courier_eligibility(current_user, order).eligible
+    ]
+
+
+@router.post("/orders/{order_id}/claim", response_model=OrderOut)
+async def claim_order(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+) -> Order:
+    _require_courier(current_user)
+    order = db.get(Order, order_id)
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if order.status != OrderStatus.pending or order.assigned_courier_id is not None:
+        raise HTTPException(status_code=409, detail="Order is no longer available")
+
+    eligibility = evaluate_courier_eligibility(current_user, order)
+    if not eligibility.eligible:
+        raise HTTPException(
+            status_code=403,
+            detail={
+                "message": "Courier is not eligible for this delivery",
+                "reasons": list(eligibility.reasons),
+            },
+        )
+
+    assigned_at = datetime.now(timezone.utc)
+    claim = (
+        update(Order)
+        .where(
+            Order.id == order_id,
+            Order.status == OrderStatus.pending,
+            Order.assigned_courier_id.is_(None),
+        )
+        .values(
+            assigned_courier_id=current_user.id,
+            assigned_at=assigned_at,
+            status=OrderStatus.assigned,
+        )
+        .execution_options(synchronize_session=False)
+    )
+    result = db.execute(claim)
+    if result.rowcount != 1:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Order was claimed by another courier")
+
+    db.commit()
+    db.expire_all()
+    claimed_order = db.get(Order, order_id)
+    if claimed_order is None:
+        raise HTTPException(status_code=404, detail="Order not found after claim")
+    await tracking_service.publish(
+        make_order_event(
+            OrderEventType.claimed,
+            claimed_order.id,
+            **_tracking_data(claimed_order),
+        )
+    )
+    return claimed_order
 
 
 @router.patch("/orders/{order_id}/status", response_model=OrderOut)
-def update_order_status(
+async def update_order_status(
     order_id: int,
     payload: StatusUpdate,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> OrderOut:
-    order = db.query(Order).filter(Order.id == order_id).first()
-    if not order:
+) -> Order:
+    order = db.get(Order, order_id)
+    if order is None:
         raise HTTPException(status_code=404, detail="Order not found")
 
-    try:
-        new_status = OrderStatus(payload.status)
-    except Exception:
-        raise HTTPException(status_code=422, detail="Invalid status")
+    current_status = OrderStatus(order.status)
+    next_status = OrderStatus(payload.status)
+    if next_status == OrderStatus.assigned:
+        raise HTTPException(status_code=409, detail="Use the claim endpoint to assign an order")
 
-    if current_user.role == UserRole.customer:
+    if current_user.role in CREATOR_ROLES:
         if order.user_id != current_user.id:
             raise HTTPException(status_code=403, detail="Not your order")
-        if new_status != OrderStatus.canceled:
-            raise HTTPException(status_code=403, detail="Customers may only cancel")
-        if order.status not in {OrderStatus.pending, OrderStatus.assigned}:
-            raise HTTPException(status_code=409, detail=f"Cannot cancel from {order.status}")
-    elif current_user.role in {UserRole.courier, UserRole.admin}:
-        if new_status != OrderStatus.canceled and not can_transition(order.status, new_status):
-            raise HTTPException(status_code=409, detail=f"Illegal transition {order.status} -> {new_status}")
-    else:
+        if next_status != OrderStatus.canceled:
+            raise HTTPException(
+                status_code=403,
+                detail="Customers and merchants may only cancel their own order",
+            )
+    elif current_user.role == UserRole.courier:
+        if order.assigned_courier_id != current_user.id:
+            raise HTTPException(status_code=403, detail="Order is assigned to another courier")
+    elif current_user.role != UserRole.admin:
         raise HTTPException(status_code=403, detail="Insufficient role")
 
-    order.status = new_status
+    if not can_transition(current_status, next_status):
+        raise HTTPException(
+            status_code=409,
+            detail=f"Illegal transition {current_status.value} -> {next_status.value}",
+        )
+
+    order.status = next_status
+    if next_status == OrderStatus.delivered:
+        order.completed_at = datetime.now(timezone.utc)
     db.commit()
     db.refresh(order)
+
+    await tracking_service.publish(
+        make_order_event(
+            OrderEventType.status_changed,
+            order.id,
+            previous_status=current_status.value,
+            actor_id=current_user.id,
+            **_tracking_data(order),
+        )
+    )
+    if next_status == OrderStatus.delivered:
+        await tracking_service.publish(
+            make_order_event(
+                OrderEventType.completed,
+                order.id,
+                actor_id=current_user.id,
+                **_tracking_data(order),
+            )
+        )
     return order
 
