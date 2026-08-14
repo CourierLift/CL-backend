@@ -1,35 +1,58 @@
-from datetime import datetime, timedelta
-from passlib.context import CryptContext
-from jose import jwt
-import os
+"""Canonical password hashing and JWT implementation."""
+
+from datetime import datetime, timedelta, timezone
+
+import bcrypt
+from jose import JWTError, jwt
+
+from .settings import settings
 
 
-# This module provides password hashing and JWT token creation/decoding
-# for the Courier Lifts API. It replaces the older auth.py implementation.
+def _password_bytes(plain: str) -> bytes:
+    encoded = plain.encode("utf-8")
+    if len(encoded) > 72:
+        raise ValueError("Password must be at most 72 UTF-8 bytes")
+    return encoded
 
-# CryptContext with bcrypt scheme for password hashing
-PWD = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
-# Secret and algorithm settings are configurable via environment variables
-SECRET_KEY = os.getenv("SECRET_KEY", "change-me")
-ALGO = os.getenv("JWT_ALGORITHM", "HS256")
-ACCESS_TOKEN_EXPIRE_MIN = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1440"))
 
 def hash_password(plain: str) -> str:
-    """Hash a plaintext password using bcrypt."""
-    return PWD.hash(plain)
+    return bcrypt.hashpw(_password_bytes(plain), bcrypt.gensalt()).decode("utf-8")
+
 
 def verify_password(plain: str, hashed: str) -> bool:
-    """Verify a plaintext password against a hashed password."""
-    return PWD.verify(plain, hashed)
+    try:
+        return bcrypt.checkpw(_password_bytes(plain), hashed.encode("utf-8"))
+    except (TypeError, ValueError):
+        return False
+
 
 def create_access_token(user_id: int, role: str) -> str:
-    """Create a JWT access token for the given user id and role."""
-    exp = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MIN)
-    payload = {"user_id": user_id, "role": role, "exp": int(exp.timestamp())}
-    return jwt.encode(payload, SECRET_KEY, algorithm=ALGO)
+    now = datetime.now(timezone.utc)
+    expires_at = now + timedelta(minutes=settings.CL_ACCESS_TOKEN_EXPIRE_MINUTES)
+    payload = {
+        "sub": str(user_id),
+        "user_id": user_id,
+        "role": role,
+        "iat": now,
+        "exp": expires_at,
+    }
+    return jwt.encode(
+        payload,
+        settings.CL_SECRET_KEY,
+        algorithm=settings.CL_JWT_ALGORITHM,
+    )
 
-def decode_access_token(token: str):
-    """Decode a JWT and return the user id and role encoded within it."""
-    data = jwt.decode(token, SECRET_KEY, algorithms=[ALGO])
-    return data["user_id"], data.get("role", "customer")
+
+def decode_access_token(token: str) -> tuple[int, str]:
+    try:
+        data = jwt.decode(
+            token,
+            settings.CL_SECRET_KEY,
+            algorithms=[settings.CL_JWT_ALGORITHM],
+        )
+        raw_user_id = data.get("sub") or data.get("user_id")
+        if raw_user_id is None:
+            raise JWTError("Missing user id")
+        return int(raw_user_id), str(data.get("role", "customer"))
+    except (JWTError, TypeError, ValueError) as exc:
+        raise ValueError("Invalid or expired token") from exc

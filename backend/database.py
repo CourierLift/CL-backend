@@ -1,18 +1,48 @@
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
-import os
+"""Canonical SQLAlchemy engine, session factory, and request dependency."""
 
-DATABASE_URL = os.getenv("CL_DATABASE_URL", "sqlite:///./db.sqlite3")
+from collections.abc import Generator
 
-engine = create_engine(
-    DATABASE_URL,
-    connect_args={"check_same_thread": False} if DATABASE_URL.startswith("sqlite") else {}
+from sqlalchemy import create_engine, event
+from sqlalchemy.orm import Session, declarative_base, sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from .settings import settings
+
+
+DATABASE_URL = settings.CL_DATABASE_URL
+SQLITE_CONNECT_ARGS = (
+    {"check_same_thread": False, "timeout": 30}
+    if DATABASE_URL.startswith("sqlite")
+    else {}
 )
 
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+ENGINE_OPTIONS = {
+    "connect_args": SQLITE_CONNECT_ARGS,
+    "pool_pre_ping": True,
+}
+if DATABASE_URL in {"sqlite://", "sqlite:///:memory:"}:
+    ENGINE_OPTIONS["poolclass"] = StaticPool
+
+engine = create_engine(DATABASE_URL, **ENGINE_OPTIONS)
+SessionLocal = sessionmaker(
+    bind=engine,
+    autoflush=False,
+    expire_on_commit=False,
+    class_=Session,
+)
 Base = declarative_base()
 
-def get_db():
+
+if DATABASE_URL.startswith("sqlite"):
+
+    @event.listens_for(engine, "connect")
+    def _enable_sqlite_foreign_keys(dbapi_connection, _connection_record) -> None:
+        cursor = dbapi_connection.cursor()
+        cursor.execute("PRAGMA foreign_keys=ON")
+        cursor.close()
+
+
+def get_db() -> Generator[Session, None, None]:
     db = SessionLocal()
     try:
         yield db
