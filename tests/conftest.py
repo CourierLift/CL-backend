@@ -12,16 +12,19 @@ os.environ["CL_DEVELOPMENT_FALLBACK_MILES"] = "7.5"
 
 from backend.database import Base, engine  # noqa: E402
 from backend.main import app  # noqa: E402
+from backend.rate_limit import auth_rate_limiter  # noqa: E402
 from backend.services.tracking import tracking_service  # noqa: E402
 
 
 @pytest.fixture(autouse=True)
 def isolated_database():
     tracking_service.reset()
+    auth_rate_limiter.reset()
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     yield
     tracking_service.reset()
+    auth_rate_limiter.reset()
     Base.metadata.drop_all(bind=engine)
 
 

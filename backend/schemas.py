@@ -8,7 +8,7 @@ from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 from .quote_engine import normalize_transport_mode
 
 
-RoleName = Literal["customer", "courier", "merchant", "admin"]
+PublicRoleName = Literal["customer", "courier", "merchant"]
 
 
 def _normalized_requirements(values: list[str]) -> list[str]:
@@ -24,7 +24,7 @@ def _normalized_requirements(values: list[str]) -> list[str]:
 class RegisterIn(BaseModel):
     email: EmailStr
     password: str = Field(min_length=6, max_length=72)
-    role: RoleName = "customer"
+    role: PublicRoleName = "customer"
     transportation_mode: str | None = None
     capabilities: list[str] = Field(default_factory=list)
     max_weight_lb: float | None = Field(default=None, gt=0)
@@ -196,4 +196,3 @@ class RewardEventOut(BaseModel):
     points: int
     type: str
     reason: str | None
-
