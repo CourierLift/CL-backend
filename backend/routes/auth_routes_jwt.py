@@ -1,12 +1,13 @@
 """JSON authentication routes backed by the canonical JWT helpers."""
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from ..auth_jwt import create_access_token, hash_password, verify_password
 from ..database import get_db
 from ..models import CourierProfile, User, UserRole
+from ..rate_limit import auth_rate_limiter, request_identity
 from ..schemas import LoginRequest, RegisterIn, TokenOut, UserOut
 from ..services.eligibility import courier_profile_defaults
 from ..settings import settings
@@ -16,7 +17,17 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 
 
 @router.post("/register", response_model=UserOut)
-def register(payload: RegisterIn, db: Session = Depends(get_db)) -> User:
+def register(
+    payload: RegisterIn,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> User:
+    auth_rate_limiter.check(
+        scope="auth.register",
+        identity=request_identity(request),
+        limit=settings.CL_AUTH_REGISTER_RATE_LIMIT,
+        window_seconds=settings.CL_AUTH_RATE_WINDOW_SECONDS,
+    )
     email = str(payload.email).lower()
     if db.query(User).filter(User.email == email).first() is not None:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -60,7 +71,17 @@ def register(payload: RegisterIn, db: Session = Depends(get_db)) -> User:
 
 
 @router.post("/login", response_model=TokenOut)
-def login(payload: LoginRequest, db: Session = Depends(get_db)) -> TokenOut:
+def login(
+    payload: LoginRequest,
+    request: Request,
+    db: Session = Depends(get_db),
+) -> TokenOut:
+    auth_rate_limiter.check(
+        scope="auth.login",
+        identity=request_identity(request),
+        limit=settings.CL_AUTH_LOGIN_RATE_LIMIT,
+        window_seconds=settings.CL_AUTH_RATE_WINDOW_SECONDS,
+    )
     user = db.query(User).filter(User.email == str(payload.email).lower()).first()
     if user is None or not verify_password(payload.password, user.password_hash):
         raise HTTPException(

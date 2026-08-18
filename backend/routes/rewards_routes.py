@@ -32,14 +32,16 @@ def add_event(
     db: Session = Depends(get_db),
     user: User = Depends(get_current_user),
 ) -> RewardEventOut:
+    if user.role != UserRole.admin:
+        raise HTTPException(
+            status_code=403,
+            detail="Reward events may only be created by a trusted administrator",
+        )
+
     if payload.order_id is not None:
         order = db.get(Order, payload.order_id)
         if order is None:
             raise HTTPException(status_code=404, detail="Order not found")
-        is_related = order.user_id == user.id or order.assigned_courier_id == user.id
-        if user.role != UserRole.admin and not is_related:
-            raise HTTPException(status_code=403, detail="Not authorized for this order")
-
     event = RewardEvent(
         user_id=user.id,
         order_id=payload.order_id,

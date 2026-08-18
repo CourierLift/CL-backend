@@ -47,8 +47,14 @@ class InMemoryTrackingService:
     def __init__(self) -> None:
         self._rooms: dict[int, set[WebSocket]] = {}
 
-    async def connect(self, order_id: int, websocket: WebSocket) -> None:
-        await websocket.accept()
+    async def connect(
+        self,
+        order_id: int,
+        websocket: WebSocket,
+        *,
+        subprotocol: str | None = None,
+    ) -> None:
+        await websocket.accept(subprotocol=subprotocol)
         self._rooms.setdefault(order_id, set()).add(websocket)
 
     def disconnect(self, order_id: int, websocket: WebSocket) -> None:

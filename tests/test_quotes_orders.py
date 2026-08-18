@@ -133,6 +133,10 @@ def test_eligible_courier_sees_and_claims_order(client, user_factory):
     available = client.get("/orders/available", headers=courier["headers"])
     assert available.status_code == 200
     assert [item["id"] for item in available.json()] == [order["id"]]
+    assert available.json()[0]["origin"] is None
+    assert available.json()[0]["destination"] is None
+    assert available.json()[0]["pickup_lat"] is None
+    assert available.json()[0]["dropoff_lat"] is None
 
     claim = client.post(
         f"/orders/{order['id']}/claim",
@@ -141,6 +145,8 @@ def test_eligible_courier_sees_and_claims_order(client, user_factory):
     assert claim.status_code == 200
     assert claim.json()["status"] == "assigned"
     assert claim.json()["assigned_courier_id"] == courier["user"]["id"]
+    assert claim.json()["origin"] == "100 Main Street"
+    assert claim.json()["destination"] == "200 Oak Avenue"
 
 
 def test_ineligible_courier_is_filtered_and_rejected(client, user_factory):

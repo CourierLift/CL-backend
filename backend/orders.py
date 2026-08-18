@@ -117,6 +117,19 @@ def _tracking_data(order: Order) -> dict[str, object]:
     }
 
 
+def _redacted_available_order(order: Order) -> OrderOut:
+    return OrderOut.model_validate(order).model_copy(
+        update={
+            "origin": None,
+            "destination": None,
+            "pickup_lat": None,
+            "pickup_lng": None,
+            "dropoff_lat": None,
+            "dropoff_lng": None,
+        }
+    )
+
+
 @router.post("/quote", response_model=QuoteResponse)
 def quote_price(payload: QuoteRequest) -> QuoteResponse:
     return _quote_response(_coordinate_quote(payload))
@@ -232,7 +245,7 @@ def list_my_orders(
 def list_available_orders(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
-) -> list[Order]:
+) -> list[OrderOut]:
     _require_courier(current_user)
     candidates = (
         db.query(Order)
@@ -244,7 +257,7 @@ def list_available_orders(
         .all()
     )
     return [
-        order
+        _redacted_available_order(order)
         for order in candidates
         if evaluate_courier_eligibility(current_user, order).eligible
     ]
@@ -369,4 +382,3 @@ async def update_order_status(
             )
         )
     return order
-

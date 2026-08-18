@@ -80,8 +80,14 @@ curl http://127.0.0.1:8000/health
 | `CL_DATABASE_URL` | SQLAlchemy database URL. The MVP default is local SQLite. |
 | `CL_FRONTEND_ORIGIN` | Browser origin allowed by CORS. |
 | `CL_DEVELOPMENT_FALLBACK_MILES` | Fixed distance for address-only local estimates. |
+| `CL_AUTH_REGISTER_RATE_LIMIT` | Maximum registration attempts per client IP and rate window. |
+| `CL_AUTH_LOGIN_RATE_LIMIT` | Maximum login attempts per client IP and rate window. |
+| `CL_AUTH_RATE_WINDOW_SECONDS` | Sliding window used by the single-process auth rate limiter. |
 
 All application configuration uses the `CL_` prefix.
+
+When `CL_APP_ENV` is `production`, startup fails unless `CL_SECRET_KEY` is a
+new value of at least 32 characters. The development placeholders are rejected.
 
 ## Frontend-compatible API
 
@@ -93,7 +99,7 @@ The existing frontend contract remains available:
 - `POST /orders/create_compat`
 - `GET /orders/mine`
 - `GET /rewards/balance`
-- `POST /rewards/event`
+- `POST /rewards/event` (trusted administrators only)
 - `GET /health`
 
 `/quote/estimate` still returns `price_total` and `eta_min`.
@@ -104,7 +110,8 @@ The existing frontend contract remains available:
 
 - `GET /orders/available` lists only deliveries that match the authenticated
   courier's transportation mode, weight/dimension limits, volume limit, and
-  required capabilities.
+  required capabilities. Exact pickup/drop-off addresses and coordinates are
+  redacted until the courier successfully claims the order.
 - `POST /orders/{order_id}/claim` atomically changes one unclaimed `pending`
   order to `assigned` and records the courier.
 - `PATCH /orders/{order_id}/status` enforces the sequence
@@ -138,17 +145,29 @@ as a pricing signal.
 
 ## Tracking limitation
 
-Connect locally with:
+The WebSocket is an authenticated, server-to-client event channel. Browser
+clients offer two WebSocket subprotocol values: `bearer` followed by the JWT:
 
-```text
-ws://127.0.0.1:8000/ws/track?order_id=123&role=client
+```javascript
+const socket = new WebSocket(
+  "ws://127.0.0.1:8000/ws/track?order_id=123",
+  ["bearer", accessToken],
+);
 ```
+
+The server derives the role from the authenticated user. Only the order creator,
+assigned courier, or an administrator may join an order room. Client-sent
+tracking messages are rejected.
 
 Order mutations publish typed `order.created`, `order.claimed`,
 `order.status_changed`, and `order.completed` events. The current connection
 manager is intentionally process-local. It loses rooms on restart and does not
 work across multiple server workers. Redis or another shared event layer must
 replace the in-memory service before horizontal scaling.
+
+Authentication rate limits are also process-local and match the MVP's required
+single-worker deployment. Replace them with a shared limiter before scaling to
+multiple instances.
 
 ## Database migration warning
 
