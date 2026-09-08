@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from .database import get_db
 from .deps_jwt import get_current_user
 from .models import Order, OrderStatus, User, UserRole
-from .quote_engine import QuoteResult, estimate_quote
+from .quote_engine import PRICING_ENGINE_VERSION, QuoteResult, estimate_quote
 from .schemas import (
     AddressQuoteRequest,
     OrderCreate,
@@ -31,7 +31,8 @@ CREATOR_ROLES = {UserRole.customer, UserRole.merchant}
 ALLOWED_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.pending: {OrderStatus.assigned, OrderStatus.canceled},
     OrderStatus.assigned: {OrderStatus.picked_up, OrderStatus.canceled},
-    OrderStatus.picked_up: {OrderStatus.delivered},
+    OrderStatus.picked_up: {OrderStatus.in_transit},
+    OrderStatus.in_transit: {OrderStatus.delivered},
     OrderStatus.delivered: set(),
     OrderStatus.canceled: set(),
 }
@@ -85,6 +86,46 @@ def _address_quote(payload: AddressQuoteRequest) -> QuoteResult:
         traffic=payload.traffic,
         surge=payload.surge,
     )
+
+
+def _pricing_snapshot(
+    result: QuoteResult,
+    *,
+    item_type: str,
+    quantity: int,
+    weight_lb: float,
+    length_in: float,
+    width_in: float,
+    height_in: float,
+    weather: str,
+    traffic: str,
+    surge: float,
+) -> dict[str, object]:
+    """Freeze every material pricing input/result used for this order."""
+    return {
+        "engine_version": PRICING_ENGINE_VERSION,
+        "customer_total": result.price_total,
+        "breakdown": dict(result.breakdown),
+        "mileage": result.miles,
+        "eta_min": result.eta_min,
+        "tier": result.tier,
+        "vehicle_type": result.transportation_mode,
+        "inputs": {
+            "vehicle": result.transportation_mode,
+            "item_type": item_type.strip().lower(),
+            "quantity": int(quantity),
+            "weight_lb": float(weight_lb),
+            "length_in": float(length_in),
+            "width_in": float(width_in),
+            "height_in": float(height_in),
+            "weather": weather.strip().lower(),
+            "traffic": traffic.strip().lower(),
+            "surge": float(surge),
+            "distance_miles": result.miles,
+            "distance_estimated": result.estimated,
+            "distance_source": result.distance_source,
+        },
+    }
 
 
 def _quote_response(result: QuoteResult) -> QuoteResponse:
@@ -152,6 +193,18 @@ async def create_order(
 ) -> Order:
     _require_order_creator(current_user)
     quote = _coordinate_quote(payload)
+    pricing_snapshot = _pricing_snapshot(
+        quote,
+        item_type=payload.item_type,
+        quantity=payload.quantity,
+        weight_lb=payload.weight_lb,
+        length_in=payload.length_in,
+        width_in=payload.width_in,
+        height_in=payload.height_in,
+        weather=payload.weather,
+        traffic=payload.traffic,
+        surge=payload.surge,
+    )
     order = Order(
         user_id=current_user.id,
         pickup_lat=payload.pickup_lat,
@@ -174,6 +227,8 @@ async def create_order(
         weather=payload.weather,
         traffic=payload.traffic,
         surge_multiplier=payload.surge,
+        pricing_engine_version=PRICING_ENGINE_VERSION,
+        pricing_snapshot=pricing_snapshot,
         status=OrderStatus.pending,
     )
     db.add(order)
@@ -197,6 +252,19 @@ async def create_order_compat(
 ) -> Order:
     _require_order_creator(current_user)
     quote = _address_quote(payload)
+    weight_lb = payload.weight_kg * 2.2046226218
+    pricing_snapshot = _pricing_snapshot(
+        quote,
+        item_type=payload.item_type,
+        quantity=payload.quantity,
+        weight_lb=weight_lb,
+        length_in=payload.length_in,
+        width_in=payload.width_in,
+        height_in=payload.height_in,
+        weather=payload.weather,
+        traffic=payload.traffic,
+        surge=payload.surge,
+    )
     order = Order(
         user_id=current_user.id,
         origin=payload.origin,
@@ -205,7 +273,7 @@ async def create_order_compat(
         item_type=payload.item_type.strip().lower(),
         delivery_requirements=payload.delivery_requirements,
         quantity=payload.quantity,
-        weight_lb=payload.weight_kg * 2.2046226218,
+        weight_lb=weight_lb,
         length_in=payload.length_in,
         width_in=payload.width_in,
         height_in=payload.height_in,
@@ -217,6 +285,8 @@ async def create_order_compat(
         weather=payload.weather,
         traffic=payload.traffic,
         surge_multiplier=payload.surge,
+        pricing_engine_version=PRICING_ENGINE_VERSION,
+        pricing_snapshot=pricing_snapshot,
         status=OrderStatus.pending,
     )
     db.add(order)
@@ -356,6 +426,8 @@ async def update_order_status(
             status_code=409,
             detail=f"Illegal transition {current_status.value} -> {next_status.value}",
         )
+    if next_status == OrderStatus.delivered and order.proof is None:
+        raise HTTPException(status_code=409, detail="Delivery proof is required before completion")
 
     order.status = next_status
     if next_status == OrderStatus.delivered:

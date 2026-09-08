@@ -92,14 +92,43 @@ def test_production_rejects_insecure_secret(monkeypatch, secret):
         Settings()
 
 
-def test_production_accepts_new_long_secret(monkeypatch):
+def configure_production(monkeypatch):
     monkeypatch.setenv("CL_APP_ENV", "production")
     monkeypatch.setenv("CL_SECRET_KEY", "f" * 64)
+    monkeypatch.setenv(
+        "CL_DATABASE_URL",
+        "postgresql+psycopg://courier_lifts:password@db/courier_lifts",
+    )
+    monkeypatch.setenv("CL_OBJECT_STORAGE_BACKEND", "s3")
+    monkeypatch.setenv("CL_S3_BUCKET", "courier-lifts-proofs")
+
+
+def test_production_accepts_hardened_runtime_posture(monkeypatch):
+    configure_production(monkeypatch)
 
     production = Settings()
 
     assert production.CL_APP_ENV == "production"
     assert production.CL_SECRET_KEY == "f" * 64
+    assert production.CL_DATABASE_URL.startswith("postgresql+psycopg://")
+    assert production.CL_OBJECT_STORAGE_BACKEND == "s3"
+    assert production.CL_S3_BUCKET == "courier-lifts-proofs"
+
+
+def test_production_rejects_sqlite_database(monkeypatch):
+    configure_production(monkeypatch)
+    monkeypatch.setenv("CL_DATABASE_URL", "sqlite:///./courier_lifts.db")
+
+    with pytest.raises(ValueError, match="must use PostgreSQL"):
+        Settings()
+
+
+def test_production_rejects_local_proof_storage(monkeypatch):
+    configure_production(monkeypatch)
+    monkeypatch.setenv("CL_OBJECT_STORAGE_BACKEND", "local")
+
+    with pytest.raises(ValueError, match="requires S3-compatible object storage"):
+        Settings()
 
 
 def test_registration_rate_limit_returns_retry_after(client, monkeypatch):

@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - transaction-core-hardening
   workflow_dispatch:
 
 permissions:
@@ -46,8 +47,72 @@ jobs:
       - name: Verify application import
         run: python -c "from backend.main import app; print(app.title)"
 
+      - name: Verify migration baseline
+        env:
+          CL_DATABASE_URL: "sqlite:///./migration-ci.db"
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
+          rm -f migration-ci.db
+
       - name: Compile source and tests
-        run: python -m compileall -q backend tests
+        run: python -m compileall -q backend tests migrations
 
       - name: Run test suite
+        run: python -m pytest -q
+
+  postgres:
+    name: PostgreSQL transaction tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: courier_lifts_test
+          POSTGRES_USER: courier_lifts
+          POSTGRES_PASSWORD: courier_lifts
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U courier_lifts -d courier_lifts_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+
+    env:
+      CL_APP_ENV: test
+      CL_DATABASE_URL: "postgresql+psycopg://courier_lifts:courier_lifts@localhost:5432/courier_lifts_test"
+      CL_SECRET_KEY: ci-only-secret-not-for-production
+      PYTHONDONTWRITEBYTECODE: "1"
+      PYTHONUNBUFFERED: "1"
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+          cache-dependency-path: requirements.txt
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt
+
+      - name: Verify PostgreSQL migrations
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
+
+      - name: Compile source and tests
+        run: python -m compileall -q backend tests migrations
+
+      - name: Run full suite on PostgreSQL
         run: python -m pytest -q

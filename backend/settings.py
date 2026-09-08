@@ -1,6 +1,7 @@
 """Application configuration loaded from CL-prefixed environment variables."""
 
 import os
+from pathlib import Path
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, model_validator
@@ -67,9 +68,34 @@ class Settings(BaseModel):
         ),
         gt=0,
     )
+    CL_OBJECT_STORAGE_BACKEND: str = Field(
+        default_factory=lambda: os.getenv("CL_OBJECT_STORAGE_BACKEND", "local")
+    )
+    CL_OBJECT_STORAGE_PATH: str = Field(
+        default_factory=lambda: os.getenv(
+            "CL_OBJECT_STORAGE_PATH", str(Path("./object_storage"))
+        )
+    )
+    CL_S3_BUCKET: str | None = Field(
+        default_factory=lambda: os.getenv("CL_S3_BUCKET")
+    )
+    CL_S3_REGION: str = Field(
+        default_factory=lambda: os.getenv("CL_S3_REGION", "us-east-1")
+    )
+    CL_S3_ENDPOINT_URL: str | None = Field(
+        default_factory=lambda: os.getenv("CL_S3_ENDPOINT_URL")
+    )
+    CL_PROOF_MAX_BYTES: int = Field(
+        default_factory=lambda: int(os.getenv("CL_PROOF_MAX_BYTES", str(10 * 1024 * 1024))),
+        gt=0,
+    )
 
     @model_validator(mode="after")
-    def validate_production_secret(self) -> "Settings":
+    def validate_runtime_posture(self) -> "Settings":
+        backend = self.CL_OBJECT_STORAGE_BACKEND.strip().lower()
+        if backend not in {"local", "s3"}:
+            raise ValueError("CL_OBJECT_STORAGE_BACKEND must be 'local' or 's3'")
+
         if self.CL_APP_ENV.strip().lower() not in {"prod", "production"}:
             return self
 
@@ -78,6 +104,10 @@ class Settings(BaseModel):
             raise ValueError(
                 "CL_SECRET_KEY must be a new production secret of at least 32 characters"
             )
+        if not self.CL_DATABASE_URL.startswith(("postgresql://", "postgresql+psycopg://")):
+            raise ValueError("Production CL_DATABASE_URL must use PostgreSQL")
+        if backend != "s3" or not (self.CL_S3_BUCKET or "").strip():
+            raise ValueError("Production proof storage requires S3-compatible object storage")
         return self
 
 

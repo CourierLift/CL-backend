@@ -92,6 +92,26 @@ def test_websocket_connection_and_marketplace_event_shapes(client, user_factory)
             assert customer_status["data"]["previous_status"] == "assigned"
             assert customer_status["data"]["status"] == "picked_up"
 
+            in_transit_response = client.patch(
+                f"/orders/{order_id}/status",
+                json={"status": "in_transit"},
+                headers=courier["headers"],
+            )
+            assert in_transit_response.status_code == 200
+            customer_transit = customer_websocket.receive_json()
+            courier_transit = courier_websocket.receive_json()
+            assert_event_shape(customer_transit, "order.status_changed", order_id)
+            assert_event_shape(courier_transit, "order.status_changed", order_id)
+            assert customer_transit["data"]["previous_status"] == "picked_up"
+            assert customer_transit["data"]["status"] == "in_transit"
+
+            proof_response = client.post(
+                f"/orders/{order_id}/proof",
+                headers=courier["headers"],
+                files={"file": ("proof.jpg", b"proof", "image/jpeg")},
+            )
+            assert proof_response.status_code == 201
+
             delivered_response = client.patch(
                 f"/orders/{order_id}/status",
                 json={"status": "delivered"},

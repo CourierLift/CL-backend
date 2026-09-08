@@ -174,14 +174,40 @@ class OrderOut(BaseModel):
     distance_miles: float
     distance_estimated: bool
     distance_source: str
+    pricing_engine_version: str
+    pricing_snapshot: dict[str, object]
     status: str
     created_at: datetime
     assigned_at: datetime | None
     completed_at: datetime | None
 
 
+class DeliveryProofOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    order_id: int
+    uploaded_by_user_id: int
+    storage_key: str
+    content_type: str
+    size_bytes: int
+    sha256: str
+    created_at: datetime
+
+
+class OrderDetailOut(OrderOut):
+    proof: DeliveryProofOut | None = None
+
+
 class StatusUpdate(BaseModel):
-    status: Literal["pending", "assigned", "picked_up", "delivered", "canceled"]
+    status: Literal[
+        "pending",
+        "assigned",
+        "picked_up",
+        "in_transit",
+        "delivered",
+        "canceled",
+    ]
 
 
 class RewardIn(BaseModel):

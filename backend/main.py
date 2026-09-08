@@ -10,6 +10,8 @@ from .database import Base, engine
 from .orders import router as orders_router
 from .routes.auth_routes_jwt import router as auth_router
 from .routes.courier_orders import router as courier_orders_router
+from .routes.order_detail import router as order_detail_router
+from .routes.proofs import router as proofs_router
 from .routes.rewards_routes import router as rewards_router
 from .settings import settings
 from .tracking import router as tracking_router
@@ -17,9 +19,10 @@ from .tracking import router as tracking_router
 
 @asynccontextmanager
 async def lifespan(_app: FastAPI):
-    # MVP convenience: create a fresh schema. Existing databases need a real
-    # migration before deployment because create_all does not alter tables.
-    Base.metadata.create_all(bind=engine)
+    # Development/test convenience only. Production schema changes are managed
+    # explicitly with Alembic so application startup never mutates production DBs.
+    if settings.CL_APP_ENV.strip().lower() not in {"prod", "production"}:
+        Base.metadata.create_all(bind=engine)
     yield
 
 
@@ -47,9 +50,10 @@ app.add_middleware(
 def health() -> dict[str, object]:
     return {"ok": True, "env": settings.CL_APP_ENV}
 
-
 app.include_router(auth_router)
 app.include_router(rewards_router)
 app.include_router(orders_router)
 app.include_router(courier_orders_router)
+app.include_router(order_detail_router)
+app.include_router(proofs_router)
 app.include_router(tracking_router)
