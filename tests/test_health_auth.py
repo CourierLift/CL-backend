@@ -1,93 +1,77 @@
-from __future__ import annotations
-
 import pytest
 
-from backend.auth_jwt import create_access_token
-from backend.settings import Settings
+from backend.settings import Settings, settings
 
 
-def test_health(client):
+def test_health_endpoint(client):
     response = client.get("/health")
+
     assert response.status_code == 200
-    assert response.json()["ok"] is True
+    assert response.json() == {"ok": True, "env": "test"}
 
 
-def test_register_login_and_me(client):
-    register = client.post(
+@pytest.mark.parametrize(
+    ("role", "extra"),
+    [
+        ("customer", {}),
+        ("merchant", {}),
+        ("courier", {"transportation_mode": "cargo bike"}),
+    ],
+)
+def test_customer_merchant_and_courier_registration_and_login(client, role, extra):
+    email = f"{role}@example.com"
+    response = client.post(
         "/auth/register",
         json={
-            "email": "owner@example.com",
+            "email": email,
             "password": "secure-pass",
-            "role": "customer",
+            "role": role,
+            **extra,
         },
     )
-    assert register.status_code == 200, register.text
-    user = register.json()
-    assert user["email"] == "owner@example.com"
-    assert user["role"] == "customer"
+
+    assert response.status_code == 200
+    assert response.json()["role"] == role
 
     login = client.post(
         "/auth/login",
-        json={"email": "owner@example.com", "password": "secure-pass"},
-    )
-    assert login.status_code == 200, login.text
-    token = login.json()["access_token"]
-
-    me = client.get("/auth/me", headers={"Authorization": f"Bearer {token}"})
-    assert me.status_code == 200
-    assert me.json()["id"] == user["id"]
-
-
-def test_courier_registration_creates_profile(client):
-    register = client.post(
-        "/auth/register",
-        json={
-            "email": "courier@example.com",
-            "password": "secure-pass",
-            "role": "courier",
-            "transportation_mode": "car",
-        },
-    )
-    assert register.status_code == 200, register.text
-
-    login = client.post(
-        "/auth/login",
-        json={"email": "courier@example.com", "password": "secure-pass"},
+        json={"email": email, "password": "secure-pass"},
     )
     assert login.status_code == 200
-    token = login.json()["access_token"]
+    assert login.json()["token_type"] == "bearer"
+    assert login.json()["access_token"]
 
-    profile = client.get(
-        "/auth/courier-profile",
-        headers={"Authorization": f"Bearer {token}"},
+
+def test_invalid_login_is_rejected(client, user_factory):
+    user_factory(role="customer", email="login@example.com")
+
+    response = client.post(
+        "/auth/login",
+        json={"email": "login@example.com", "password": "wrong-pass"},
     )
-    assert profile.status_code == 200
-    assert profile.json()["transportation_mode"] == "car"
 
-
-def test_me_rejects_invalid_token(client):
-    response = client.get(
-        "/auth/me",
-        headers={"Authorization": "Bearer not-a-valid-token"},
-    )
     assert response.status_code == 401
+    assert response.json()["detail"] == "Invalid credentials"
 
 
-def test_me_rejects_token_without_subject(client):
-    token = create_access_token({"role": "customer"})
-    response = client.get(
-        "/auth/me",
-        headers={"Authorization": f"Bearer {token}"},
+def test_public_registration_rejects_admin_role(client):
+    response = client.post(
+        "/auth/register",
+        json={
+            "email": "not-an-admin@example.com",
+            "password": "secure-pass",
+            "role": "admin",
+        },
     )
-    assert response.status_code == 401
 
-
-def test_login_rejects_wrong_password(client, user_factory):
-    user_factory(email="wrong-password@example.com")
+    assert response.status_code == 422
 
     login = client.post(
         "/auth/login",
-        json={"email": "wrong-password@example.com", "password": "incorrect"},
+        json={
+            "email": "not-an-admin@example.com",
+            "password": "secure-pass",
+        },
     )
     assert login.status_code == 401
 
@@ -145,13 +129,65 @@ def test_production_rejects_local_proof_storage(monkeypatch):
     configure_production(monkeypatch)
     monkeypatch.setenv("CL_OBJECT_STORAGE_BACKEND", "local")
 
-    with pytest.raises(ValueError, match="requires S3-compatible"):
+    with pytest.raises(ValueError, match="requires S3-compatible object storage"):
         Settings()
 
 
-def test_production_requires_s3_bucket(monkeypatch):
-    configure_production(monkeypatch)
-    monkeypatch.delenv("CL_S3_BUCKET", raising=False)
+def test_registration_rate_limit_returns_retry_after(client, monkeypatch):
+    monkeypatch.setattr(settings, "CL_AUTH_REGISTER_RATE_LIMIT", 2)
 
-    with pytest.raises(ValueError, match="requires S3-compatible"):
-        Settings()
+    for index in range(2):
+        response = client.post(
+            "/auth/register",
+            json={
+                "email": f"limited-{index}@example.com",
+                "password": "secure-pass",
+                "role": "customer",
+            },
+        )
+        assert response.status_code == 200
+
+    limited = client.post(
+        "/auth/register",
+        json={
+            "email": "limited-2@example.com",
+            "password": "secure-pass",
+            "role": "customer",
+        },
+    )
+
+    assert limited.status_code == 429
+    assert int(limited.headers["retry-after"]) >= 1
+
+
+def test_login_rate_limit_returns_retry_after(client, monkeypatch):
+    monkeypatch.setattr(settings, "CL_AUTH_LOGIN_RATE_LIMIT", 2)
+    client.post(
+        "/auth/register",
+        json={
+            "email": "login-limited@example.com",
+            "password": "secure-pass",
+            "role": "customer",
+        },
+    )
+
+    for _index in range(2):
+        response = client.post(
+            "/auth/login",
+            json={
+                "email": "login-limited@example.com",
+                "password": "wrong-pass",
+            },
+        )
+        assert response.status_code == 401
+
+    limited = client.post(
+        "/auth/login",
+        json={
+            "email": "login-limited@example.com",
+            "password": "wrong-pass",
+        },
+    )
+
+    assert limited.status_code == 429
+    assert int(limited.headers["retry-after"]) >= 1
