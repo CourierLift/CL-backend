@@ -129,6 +129,8 @@ class Order(Base):
     weather = Column(String, default="clear", nullable=False)
     traffic = Column(String, default="medium", nullable=False)
     surge_multiplier = Column(Float, default=1.0, nullable=False)
+    pricing_engine_version = Column(String, nullable=False)
+    pricing_snapshot = Column(JSON, nullable=False)
 
     status = Column(
         Enum(OrderStatus),
