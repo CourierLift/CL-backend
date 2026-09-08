@@ -181,7 +181,14 @@ class OrderOut(BaseModel):
 
 
 class StatusUpdate(BaseModel):
-    status: Literal["pending", "assigned", "picked_up", "delivered", "canceled"]
+    status: Literal[
+        "pending",
+        "assigned",
+        "picked_up",
+        "in_transit",
+        "delivered",
+        "canceled",
+    ]
 
 
 class RewardIn(BaseModel):
