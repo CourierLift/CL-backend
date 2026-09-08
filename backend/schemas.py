@@ -174,6 +174,8 @@ class OrderOut(BaseModel):
     distance_miles: float
     distance_estimated: bool
     distance_source: str
+    pricing_engine_version: str
+    pricing_snapshot: dict[str, object]
     status: str
     created_at: datetime
     assigned_at: datetime | None
