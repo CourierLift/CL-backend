@@ -46,8 +46,17 @@ jobs:
       - name: Verify application import
         run: python -c "from backend.main import app; print(app.title)"
 
+      - name: Verify migration baseline
+        env:
+          CL_DATABASE_URL: "sqlite:///./migration-ci.db"
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
+          rm -f migration-ci.db
+
       - name: Compile source and tests
-        run: python -m compileall -q backend tests
+        run: python -m compileall -q backend tests migrations
 
       - name: Run test suite
         run: python -m pytest -q
