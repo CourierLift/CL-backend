@@ -4,6 +4,9 @@ from dataclasses import dataclass
 import math
 
 
+PRICING_ENGINE_VERSION = "2026-09-08-v1"
+
+
 @dataclass(frozen=True)
 class TransportSpec:
     base_fee: float
