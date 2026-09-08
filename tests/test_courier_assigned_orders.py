@@ -1,4 +1,17 @@
-from tests.test_quotes_orders import create_delivery
+def create_delivery(client, headers, **overrides):
+    payload = {
+        "origin": "100 Main Street",
+        "destination": "200 Oak Avenue",
+        "vehicle": "car",
+        "item_type": "standard",
+        "weight_kg": 5,
+        "quantity": 1,
+        "length_in": 12,
+        "width_in": 8,
+        "height_in": 6,
+    }
+    payload.update(overrides)
+    return client.post("/orders/create_compat", json=payload, headers=headers)
 
 
 def test_assigned_orders_recover_claimed_and_completed_work(client, user_factory):
