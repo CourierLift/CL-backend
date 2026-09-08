@@ -195,6 +195,10 @@ class DeliveryProofOut(BaseModel):
     created_at: datetime
 
 
+class OrderDetailOut(OrderOut):
+    proof: DeliveryProofOut | None = None
+
+
 class StatusUpdate(BaseModel):
     status: Literal[
         "pending",
