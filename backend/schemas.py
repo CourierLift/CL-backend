@@ -180,6 +180,19 @@ class OrderOut(BaseModel):
     completed_at: datetime | None
 
 
+class DeliveryProofOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    order_id: int
+    uploaded_by_user_id: int
+    storage_key: str
+    content_type: str
+    size_bytes: int
+    sha256: str
+    created_at: datetime
+
+
 class StatusUpdate(BaseModel):
     status: Literal[
         "pending",
