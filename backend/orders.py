@@ -357,6 +357,8 @@ async def update_order_status(
             status_code=409,
             detail=f"Illegal transition {current_status.value} -> {next_status.value}",
         )
+    if next_status == OrderStatus.delivered and order.proof is None:
+        raise HTTPException(status_code=409, detail="Delivery proof is required before completion")
 
     order.status = next_status
     if next_status == OrderStatus.delivered:
