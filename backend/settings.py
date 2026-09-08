@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field, model_validator
@@ -108,6 +109,17 @@ class Settings(BaseModel):
             raise ValueError("Production CL_DATABASE_URL must use PostgreSQL")
         if backend != "s3" or not (self.CL_S3_BUCKET or "").strip():
             raise ValueError("Production proof storage requires S3-compatible object storage")
+
+        origin = self.CL_FRONTEND_ORIGIN.strip().rstrip("/")
+        parsed = urlparse(origin)
+        hostname = (parsed.hostname or "").lower()
+        if parsed.scheme != "https" or not parsed.netloc:
+            raise ValueError("Production CL_FRONTEND_ORIGIN must be an HTTPS origin")
+        if hostname in {"localhost", "127.0.0.1", "::1"} or hostname.endswith(".localhost"):
+            raise ValueError("Production CL_FRONTEND_ORIGIN cannot use localhost")
+        if parsed.path or parsed.params or parsed.query or parsed.fragment:
+            raise ValueError("CL_FRONTEND_ORIGIN must contain only scheme, host, and optional port")
+        self.CL_FRONTEND_ORIGIN = origin
         return self
 
 
