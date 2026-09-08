@@ -2,7 +2,7 @@ import pytest
 from pydantic import ValidationError
 
 from backend.main import cors_origins
-from backend.settings import Settings
+from backend.settings import Settings, settings as runtime_settings
 
 
 PRODUCTION_BASE = {
@@ -54,3 +54,31 @@ def test_readiness_probe_checks_database(client):
 
     assert response.status_code == 200
     assert response.json() == {"ok": True, "database": "reachable"}
+
+
+def test_production_address_pricing_fails_closed_without_real_distance_source(
+    client, monkeypatch
+):
+    monkeypatch.setattr(runtime_settings, "CL_APP_ENV", "production")
+
+    response = client.post(
+        "/quote/estimate",
+        json={
+            "origin": "100 Main Street",
+            "destination": "200 Oak Avenue",
+            "vehicle": "car",
+            "item_type": "standard",
+            "quantity": 1,
+            "weight_kg": 5,
+            "length_in": 12,
+            "width_in": 8,
+            "height_in": 6,
+            "weather": "clear",
+            "traffic": "medium",
+            "surge": 1.0,
+            "delivery_requirements": [],
+        },
+    )
+
+    assert response.status_code == 503
+    assert "real distance source" in response.json()["detail"]
