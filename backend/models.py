@@ -80,6 +80,7 @@ class OrderStatus(str, enum.Enum):
     pending = "pending"
     assigned = "assigned"
     picked_up = "picked_up"
+    in_transit = "in_transit"
     delivered = "delivered"
     canceled = "canceled"
 
@@ -167,4 +168,3 @@ class RewardEvent(Base):
     points = Column(Integer, nullable=False, default=0)
     reason = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
-
