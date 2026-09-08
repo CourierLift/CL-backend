@@ -36,6 +36,11 @@ def test_assigned_orders_recover_claimed_and_completed_work(client, user_factory
     )
     client.patch(
         f"/orders/{first['id']}/status",
+        json={"status": "in_transit"},
+        headers=courier["headers"],
+    )
+    client.patch(
+        f"/orders/{first['id']}/status",
         json={"status": "delivered"},
         headers=courier["headers"],
     )
