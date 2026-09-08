@@ -31,7 +31,8 @@ CREATOR_ROLES = {UserRole.customer, UserRole.merchant}
 ALLOWED_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.pending: {OrderStatus.assigned, OrderStatus.canceled},
     OrderStatus.assigned: {OrderStatus.picked_up, OrderStatus.canceled},
-    OrderStatus.picked_up: {OrderStatus.delivered},
+    OrderStatus.picked_up: {OrderStatus.in_transit},
+    OrderStatus.in_transit: {OrderStatus.delivered},
     OrderStatus.delivered: set(),
     OrderStatus.canceled: set(),
 }
