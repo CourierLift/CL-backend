@@ -1,4 +1,4 @@
-"""Canonical database models for users, courier profiles, orders, and rewards."""
+"""Canonical database models for users, courier profiles, orders, proofs, and rewards."""
 
 from datetime import datetime, timezone
 import enum
@@ -40,7 +40,6 @@ class User(Base):
     role = Column(Enum(UserRole), default=UserRole.customer, nullable=False)
     created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
 
-    # Keep the existing creator relationship name for compatibility.
     orders = relationship(
         "Order",
         back_populates="user",
@@ -56,6 +55,11 @@ class User(Base):
         back_populates="user",
         uselist=False,
         cascade="all, delete-orphan",
+    )
+    delivery_proofs = relationship(
+        "DeliveryProof",
+        back_populates="uploaded_by",
+        foreign_keys="DeliveryProof.uploaded_by_user_id",
     )
 
 
@@ -145,6 +149,32 @@ class Order(Base):
         "User",
         back_populates="assigned_orders",
         foreign_keys=[assigned_courier_id],
+    )
+    proof = relationship(
+        "DeliveryProof",
+        back_populates="order",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
+
+
+class DeliveryProof(Base):
+    __tablename__ = "delivery_proofs"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"), unique=True, nullable=False, index=True)
+    uploaded_by_user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    storage_key = Column(String, unique=True, nullable=False)
+    content_type = Column(String, nullable=False)
+    size_bytes = Column(Integer, nullable=False)
+    sha256 = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+
+    order = relationship("Order", back_populates="proof")
+    uploaded_by = relationship(
+        "User",
+        back_populates="delivery_proofs",
+        foreign_keys=[uploaded_by_user_id],
     )
 
 
