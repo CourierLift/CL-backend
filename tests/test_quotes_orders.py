@@ -260,6 +260,16 @@ def test_legal_status_progression_and_terminal_state(client, user_factory):
         json={"status": "in_transit"},
         headers=courier["headers"],
     )
+    without_proof = client.patch(
+        f"/orders/{order['id']}/status",
+        json={"status": "delivered"},
+        headers=courier["headers"],
+    )
+    proof = client.post(
+        f"/orders/{order['id']}/proof",
+        headers=courier["headers"],
+        files={"file": ("proof.jpg", b"proof", "image/jpeg")},
+    )
     delivered = client.patch(
         f"/orders/{order['id']}/status",
         json={"status": "delivered"},
@@ -276,6 +286,8 @@ def test_legal_status_progression_and_terminal_state(client, user_factory):
     assert skipped_transit.status_code == 409
     assert in_transit.status_code == 200
     assert in_transit.json()["status"] == "in_transit"
+    assert without_proof.status_code == 409
+    assert proof.status_code == 201
     assert delivered.status_code == 200
     assert delivered.json()["status"] == "delivered"
     assert delivered.json()["completed_at"] is not None
