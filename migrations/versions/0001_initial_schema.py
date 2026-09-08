@@ -121,3 +121,11 @@ def downgrade() -> None:
     op.drop_index(op.f("ix_users_id"), table_name="users")
     op.drop_index(op.f("ix_users_email"), table_name="users")
     op.drop_table("users")
+
+    # PostgreSQL named ENUM types are independent schema objects. Alembic's
+    # table drops do not remove them, so a full downgrade-to-base followed by
+    # upgrade would otherwise fail with DuplicateObject on the next upgrade.
+    if op.get_bind().dialect.name == "postgresql":
+        op.execute("DROP TYPE IF EXISTS rewardeventtype")
+        op.execute("DROP TYPE IF EXISTS orderstatus")
+        op.execute("DROP TYPE IF EXISTS userrole")
