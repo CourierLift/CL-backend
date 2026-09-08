@@ -105,6 +105,13 @@ def test_websocket_connection_and_marketplace_event_shapes(client, user_factory)
             assert customer_transit["data"]["previous_status"] == "picked_up"
             assert customer_transit["data"]["status"] == "in_transit"
 
+            proof_response = client.post(
+                f"/orders/{order_id}/proof",
+                headers=courier["headers"],
+                files={"file": ("proof.jpg", b"proof", "image/jpeg")},
+            )
+            assert proof_response.status_code == 201
+
             delivered_response = client.patch(
                 f"/orders/{order_id}/status",
                 json={"status": "delivered"},
