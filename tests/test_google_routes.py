@@ -1,3 +1,5 @@
+import asyncio
+
 import httpx
 import pytest
 
@@ -29,8 +31,7 @@ def test_google_travel_mode_maps_existing_transport_modes(mode, expected):
     assert google_travel_mode(mode) == expected
 
 
-@pytest.mark.asyncio
-async def test_google_route_distance_requests_only_distance(monkeypatch):
+def test_google_route_distance_requests_only_distance(monkeypatch):
     captured = {}
 
     async def fake_post(self, url, *, json, headers):
@@ -43,11 +44,13 @@ async def test_google_route_distance_requests_only_distance(monkeypatch):
 
     monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
 
-    route = await google_route_distance(
-        origin="100 Main Street, Austin, TX",
-        destination="200 Oak Avenue, Bastrop, TX",
-        transportation_mode="car",
-        api_key="test-key",
+    route = asyncio.run(
+        google_route_distance(
+            origin="100 Main Street, Austin, TX",
+            destination="200 Oak Avenue, Bastrop, TX",
+            transportation_mode="car",
+            api_key="test-key",
+        )
     )
 
     assert route.miles == 10.0
@@ -61,8 +64,7 @@ async def test_google_route_distance_requests_only_distance(monkeypatch):
     assert captured["headers"]["X-Goog-FieldMask"] == "routes.distanceMeters"
 
 
-@pytest.mark.asyncio
-async def test_google_route_distance_rejects_provider_failure(monkeypatch):
+def test_google_route_distance_rejects_provider_failure(monkeypatch):
     async def fake_post(self, url, *, json, headers):
         return httpx.Response(
             403,
@@ -73,11 +75,13 @@ async def test_google_route_distance_rejects_provider_failure(monkeypatch):
     monkeypatch.setattr(httpx.AsyncClient, "post", fake_post)
 
     with pytest.raises(RouteDistanceError, match="request failed"):
-        await google_route_distance(
-            origin="100 Main Street",
-            destination="200 Oak Avenue",
-            transportation_mode="car",
-            api_key="test-key",
+        asyncio.run(
+            google_route_distance(
+                origin="100 Main Street",
+                destination="200 Oak Avenue",
+                transportation_mode="car",
+                api_key="test-key",
+            )
         )
 
 
