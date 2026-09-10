@@ -51,6 +51,9 @@ class Settings(BaseModel):
         ),
         gt=0,
     )
+    CL_GOOGLE_MAPS_API_KEY: str | None = Field(
+        default_factory=lambda: os.getenv("CL_GOOGLE_MAPS_API_KEY")
+    )
     CL_AUTH_REGISTER_RATE_LIMIT: int = Field(
         default_factory=lambda: int(
             os.getenv("CL_AUTH_REGISTER_RATE_LIMIT", "10")
@@ -109,6 +112,8 @@ class Settings(BaseModel):
             raise ValueError("Production CL_DATABASE_URL must use PostgreSQL")
         if backend != "s3" or not (self.CL_S3_BUCKET or "").strip():
             raise ValueError("Production proof storage requires S3-compatible object storage")
+        if not (self.CL_GOOGLE_MAPS_API_KEY or "").strip():
+            raise ValueError("Production address pricing requires CL_GOOGLE_MAPS_API_KEY")
 
         origin = self.CL_FRONTEND_ORIGIN.strip().rstrip("/")
         parsed = urlparse(origin)
