@@ -25,7 +25,8 @@ Before deploying a candidate:
 5. Production environment variables have been reviewed without printing secret values.
 6. Managed PostgreSQL backup is current.
 7. S3-compatible proof bucket is reachable by the deployment identity.
-8. A real production distance source exists for the address-based sender flow. Until then, production address quote/create endpoints intentionally return HTTP 503.
+8. `CL_GOOGLE_MAPS_API_KEY` is configured in the backend environment and restricted to the Google Routes API.
+9. The production sender flow returns `distance_source=google_routes`; `development_fallback` must never appear in production.
 
 ## Release sequence
 
@@ -53,15 +54,16 @@ Before deploying a candidate:
 
 8. Deploy the frontend with `BACKEND_URL` set to the canonical HTTPS backend origin and `VITE_COURIER_LIFTS_API_URL=/api`.
 9. Verify frontend `/api/health` and `/api/ready` reach the backend through the production proxy.
-10. Run the staging/production-style transaction smoke test from separate sender and courier sessions.
+10. Run a real address quote and confirm the response uses `google_routes` distance rather than the development fallback.
+11. Run the staging/production-style transaction smoke test from separate sender and courier sessions.
 
 ## Transaction smoke test
 
 Do not mark a release healthy until all of the following are observed from canonical backend state:
 
 1. Sender authenticates.
-2. Sender receives backend-authoritative pricing.
-3. Sender creates one Lift.
+2. Sender enters real pickup/dropoff addresses and receives backend-authoritative pricing using Google Routes distance.
+3. Sender creates one Lift and its pricing snapshot records `distance_source=google_routes`.
 4. Courier authenticates in a separate browser/device session.
 5. Courier discovers and claims the Lift.
 6. A competing claim is rejected if tested.
@@ -71,11 +73,17 @@ Do not mark a release healthy until all of the following are observed from canon
 10. Attempting `delivered` without proof is rejected; with proof it succeeds.
 11. Sender and courier start fresh sessions and retrieve the same completed status, assignment, proof metadata, timestamps, and pricing snapshot.
 
-## Production distance-source failure
+## Google Routes incident
 
-If address-based quote/create returns HTTP 503 with the message that a real distance source is required, **do not disable the guard**. The release is blocked for the address-based sender flow until the distance/geocoding dependency is implemented and validated.
+Production address quote/create depends on Google Routes. If Google is unavailable, the API key is invalid/restricted incorrectly, or Google returns no usable route, Courier Lifts returns HTTP 503 rather than substituting fixed mileage.
 
-Coordinate-based quote/create endpoints remain useful for backend validation but do not make the current address-based frontend launch-ready by themselves.
+1. Do not re-enable `CL_DEVELOPMENT_FALLBACK_MILES` in production.
+2. Verify Google Routes API status and the backend-only key configuration without printing the key.
+3. Confirm the key is enabled/restricted for Routes API use and the project has valid billing.
+4. Retry a known-valid address pair.
+5. Keep address-based Lift creation unavailable until real route distance is restored.
+
+The Courier Lifts pricing engine remains authoritative for the customer price; Google supplies route distance only.
 
 ## Proof-storage incident
 
@@ -118,4 +126,4 @@ For a migration-related production incident:
 
 ## Launch decision
 
-CI green is necessary but not sufficient. Public launch requires the remaining unchecked items in `LAUNCH_READINESS.md`, including production infrastructure, backup/restore verification, monitoring/alerting, real distance pricing for the address flow, and a successful deployed smoke transaction.
+CI green is necessary but not sufficient. Public launch requires the remaining unchecked items in `LAUNCH_READINESS.md`, including production infrastructure, backup/restore verification, monitoring/alerting, configured Google Routes credentials, and a successful deployed smoke transaction.
