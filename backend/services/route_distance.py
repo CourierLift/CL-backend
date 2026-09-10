@@ -50,15 +50,18 @@ async def google_route_distance(
     if not api_key:
         raise RouteDistanceError("Google Routes API key is not configured")
 
+    travel_mode = google_travel_mode(transportation_mode)
     payload = {
         "origin": {"address": origin},
         "destination": {"address": destination},
-        "travelMode": google_travel_mode(transportation_mode),
-        "routingPreference": "TRAFFIC_UNAWARE",
+        "travelMode": travel_mode,
         "computeAlternativeRoutes": False,
         "languageCode": "en-US",
         "units": "IMPERIAL",
     }
+    if travel_mode in {"DRIVE", "TWO_WHEELER"}:
+        payload["routingPreference"] = "TRAFFIC_UNAWARE"
+
     headers = {
         "Content-Type": "application/json",
         "X-Goog-Api-Key": api_key,
