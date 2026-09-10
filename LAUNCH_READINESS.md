@@ -26,13 +26,17 @@ The canonical release target remains the existing FastAPI + SQLAlchemy monolith.
 - [x] Production CORS does not automatically whitelist localhost.
 - [x] `/health` provides process liveness.
 - [x] `/ready` verifies database connectivity.
-- [x] Address-only development fallback pricing is blocked in production rather than fabricating mileage.
+- [x] Google Routes adapter resolves production address-based route distance without replacing the Courier Lifts pricing engine.
+- [x] Production configuration requires `CL_GOOGLE_MAPS_API_KEY`.
+- [x] Google/provider failure returns HTTP 503 instead of using development fallback mileage.
+- [x] Development/test address pricing may still use the explicit fixed-mile fallback.
 - [x] Release/smoke/rollback procedure is documented in `RUNBOOK.md`.
 - [x] MVP single-worker deployment constraint is documented.
 
 ### Launch blockers / deployment requirements
 
-- [ ] **Configure a real production distance/geocoding source for the current address-based sender flow.** Until this is complete, `/quote/estimate` and `/orders/create_compat` intentionally return HTTP 503 in production.
+- [ ] Store a valid restricted Google Maps Platform key as backend-only `CL_GOOGLE_MAPS_API_KEY`, with Routes API enabled and billing active.
+- [ ] Verify a live production-style address quote returns `distance_source=google_routes` for known real addresses.
 - [ ] Provision managed PostgreSQL and set `CL_DATABASE_URL`.
 - [ ] Confirm automated PostgreSQL backups and retention policy.
 - [ ] Complete one restore drill before public launch.
@@ -44,10 +48,10 @@ The canonical release target remains the existing FastAPI + SQLAlchemy monolith.
 - [ ] Confirm production runs exactly one application process/worker until shared rate-limit/tracking infrastructure exists.
 - [ ] Monitor `/health` and `/ready` separately.
 - [ ] Centralize application/error logs with request correlation suitable for incident review.
-- [ ] Configure alerting for elevated 5xx responses, readiness failures, database saturation, and object-storage errors.
+- [ ] Configure alerting for elevated 5xx responses, readiness failures, database saturation, Google Routes failures, and object-storage errors.
 - [ ] Run the canonical sender -> courier staging smoke transaction against production-style infrastructure.
 - [ ] Complete and rehearse the rollback procedure against staging/backup infrastructure.
 
 ## Launch acceptance
 
-The application is not launch-ready merely because CI is green. Launch acceptance requires the verified transaction core plus successful staging deployment, real address-distance pricing, production configuration validation, backup/restore posture, monitoring, and one production-style smoke transaction.
+The application is not launch-ready merely because CI is green. Launch acceptance requires the verified transaction core plus successful staging deployment, live Google Routes validation, production configuration validation, backup/restore posture, monitoring, and one production-style smoke transaction.
