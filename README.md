@@ -17,6 +17,7 @@ A customer or merchant creates a Lift, one eligible courier atomically claims it
 - SQLite for local development/tests
 - PostgreSQL for production
 - S3-compatible object storage for production delivery proof files
+- Google Routes for production address-to-route distance
 - Existing backend quote engine is the only pricing authority
 
 Do not introduce microservices for launch readiness.
@@ -80,6 +81,7 @@ Key production requirements:
 | `CL_SECRET_KEY` | New secret, at least 32 characters; development placeholders are rejected |
 | `CL_DATABASE_URL` | PostgreSQL URL |
 | `CL_FRONTEND_ORIGIN` | Final HTTPS frontend origin; localhost is rejected |
+| `CL_GOOGLE_MAPS_API_KEY` | Backend-only Google Maps Platform key with Routes API enabled/restricted |
 | `CL_OBJECT_STORAGE_BACKEND` | `s3` |
 | `CL_S3_BUCKET` | Proof-storage bucket |
 | `CL_S3_REGION` | S3 region |
@@ -92,6 +94,8 @@ Key production requirements:
 
 Application startup does **not** mutate the production schema. Run `alembic upgrade head` as an explicit release step before starting a new production version.
 
+Never commit the Google API key to GitHub or expose it in the React bundle. It belongs only in the backend deployment environment.
+
 ## Canonical transaction API
 
 Authentication:
@@ -103,9 +107,9 @@ Authentication:
 Pricing and creation:
 
 - `POST /quote` — coordinate-based quote using Haversine distance
-- `POST /quote/estimate` — address-compatible development path
+- `POST /quote/estimate` — address-based quote; Google Routes distance in production, fixed fallback only outside production
 - `POST /orders` — coordinate-based canonical creation
-- `POST /orders/create_compat` — address-compatible creation used by the current React sender UI
+- `POST /orders/create_compat` — address-based creation used by the current React sender UI
 
 Marketplace and transaction state:
 
@@ -136,15 +140,22 @@ Only the assigned courier can progress courier-owned states or submit proof. A d
 
 `backend/quote_engine.py` remains the single pricing implementation. At Lift creation the backend persists an immutable pricing snapshot containing the pricing-engine version, final customer total, detailed breakdown, mileage, ETA, tier, vehicle type, and material pricing inputs. Historical orders are read from the persisted snapshot rather than silently repriced under later rules.
 
-## Production distance-source blocker
+## Google Routes distance integration
 
-The current address-compatible quote path intentionally uses `CL_DEVELOPMENT_FALLBACK_MILES` only outside production. It is a development/testing convenience, not a real routing source.
+Production address-based quote/create resolves the sender's pickup and dropoff through Google Routes `computeRoutes` and requests only route distance. That real route mileage is passed into the existing Courier Lifts pricing engine; Google does not determine the customer price.
 
-In production, `POST /quote/estimate` and `POST /orders/create_compat` fail closed with HTTP 503 until a real distance/geocoding source is configured. This prevents launch with fabricated fixed-mileage pricing.
+The production pricing snapshot records `distance_source=google_routes`. Outside production, the existing `CL_DEVELOPMENT_FALLBACK_MILES` remains available for local development/tests.
 
-Coordinate-based `POST /quote` and `POST /orders` do not use the development fallback.
+Travel-mode mapping for the closed pilot:
 
-A production distance source is therefore a **launch blocker** for the current address-based React sender flow. Do not remove the guard merely to make staging appear green.
+- foot -> Google `WALK`
+- bike/cargo bike/e-bike -> `BICYCLE`
+- scooter/motorcycle -> `TWO_WHEELER`
+- car/EV/SUV/van/pickup/box truck -> `DRIVE`
+
+Dedicated commercial-truck restriction routing is intentionally deferred until vehicle height/weight/axle attributes are modeled. This does not change Courier Lifts vehicle eligibility or pricing tiers.
+
+If Google Routes fails, production address quote/create returns HTTP 503. It never substitutes the development fixed-mileage value.
 
 ## Proof storage
 
