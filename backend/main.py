@@ -2,9 +2,8 @@
 
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
 from sqlalchemy import text
 from sqlalchemy.exc import SQLAlchemyError
 
@@ -21,7 +20,6 @@ from .tracking import router as tracking_router
 
 
 PRODUCTION_ENVS = {"prod", "production"}
-ADDRESS_FALLBACK_PATHS = {"/quote/estimate", "/orders/create_compat"}
 
 
 def cors_origins(app_env: str, frontend_origin: str) -> list[str]:
@@ -53,25 +51,6 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
-
-
-@app.middleware("http")
-async def block_development_distance_fallback_in_production(request: Request, call_next):
-    if (
-        settings.CL_APP_ENV.strip().lower() in PRODUCTION_ENVS
-        and request.method == "POST"
-        and request.url.path in ADDRESS_FALLBACK_PATHS
-    ):
-        return JSONResponse(
-            status_code=503,
-            content={
-                "detail": (
-                    "Address-only pricing is unavailable in production until a real "
-                    "distance source is configured"
-                )
-            },
-        )
-    return await call_next(request)
 
 
 @app.get("/health")
