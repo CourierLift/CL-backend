@@ -1,20 +1,28 @@
 # Courier Lifts backend
 
-This repository is the canonical FastAPI backend for the Courier Lifts MVP. It
-supports the first marketplace loop:
+This repository is the canonical FastAPI + SQLAlchemy backend for the Courier Lifts MVP.
 
-1. A customer or merchant creates a delivery.
-2. Eligible couriers see the unclaimed delivery.
-3. One courier atomically claims it.
-4. Only the assigned courier can advance the delivery.
-5. The delivery completes after the legal status sequence.
+The verified transaction contract is:
 
-The MVP uses Python 3.11, FastAPI, SQLAlchemy, and SQLite. It does not charge
-cards, call a maps provider, use Redis, or claim production-scale telemetry.
+`pending -> assigned -> picked_up -> in_transit -> delivered`
 
-## First-time setup on macOS or Linux
+A customer or merchant creates a Lift, one eligible courier atomically claims it, only the assigned courier may progress it, durable proof of delivery is required before completion, and both sides recover the same authoritative transaction from fresh sessions.
 
-Run these commands from the repository root, one line at a time:
+## Runtime posture
+
+- Python 3.11
+- FastAPI monolith
+- SQLAlchemy relational persistence
+- Alembic schema migrations
+- SQLite for local development/tests
+- PostgreSQL for production
+- S3-compatible object storage for production delivery proof files
+- Google Routes for production address-to-route distance
+- Existing backend quote engine is the only pricing authority
+
+Do not introduce microservices for launch readiness.
+
+## Local setup
 
 ```bash
 python3.11 -m venv .venv
@@ -22,22 +30,11 @@ source .venv/bin/activate
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 cp .env.example .env
-```
-
-Open `.env` and replace `CL_SECRET_KEY` with a long random value. Keep `.env`
-local; Git ignores it.
-
-Start the API:
-
-```bash
+alembic upgrade head
 uvicorn backend.main:app --reload
 ```
 
-Open `http://127.0.0.1:8000/docs` for the interactive API documentation.
-
-## First-time setup on Windows PowerShell
-
-Run these commands from the repository root, one line at a time:
+Windows PowerShell activation:
 
 ```powershell
 py -3.11 -m venv .venv
@@ -45,144 +42,131 @@ py -3.11 -m venv .venv
 python -m pip install --upgrade pip
 pip install -r requirements.txt
 Copy-Item .env.example .env
-```
-
-Open `.env` and replace `CL_SECRET_KEY` with a long random value. Then start the
-API:
-
-```powershell
+alembic upgrade head
 uvicorn backend.main:app --reload
 ```
 
-## Verify the installation
+Interactive docs are available locally at `http://127.0.0.1:8000/docs`.
 
-With the virtual environment active:
+## Verification
 
 ```bash
 python -c "from backend.main import app; print(app.title)"
-pytest -q
+python -m pytest -q
 ```
 
-The health endpoint should return HTTP 200:
+Liveness:
 
 ```bash
 curl http://127.0.0.1:8000/health
 ```
 
-## Environment variables
+Readiness, including database connectivity:
 
-| Variable | Purpose |
+```bash
+curl http://127.0.0.1:8000/ready
+```
+
+CI runs the transaction suite on both SQLite and PostgreSQL 16. PostgreSQL CI also verifies the Alembic upgrade -> downgrade -> upgrade cycle and the simultaneous courier-claim race.
+
+## Production configuration
+
+All application configuration uses the `CL_` prefix. See `.env.example` for the complete development template.
+
+Key production requirements:
+
+| Variable | Production requirement |
 | --- | --- |
-| `CL_APP_ENV` | Environment label returned by `/health`. |
-| `CL_SECRET_KEY` | Secret used to sign authentication tokens. |
-| `CL_JWT_ALGORITHM` | JWT signing algorithm; the MVP default is `HS256`. |
-| `CL_ACCESS_TOKEN_EXPIRE_MINUTES` | Authentication-token lifetime. |
-| `CL_DATABASE_URL` | SQLAlchemy database URL. The MVP default is local SQLite. |
-| `CL_FRONTEND_ORIGIN` | Browser origin allowed by CORS. |
-| `CL_DEVELOPMENT_FALLBACK_MILES` | Fixed distance for address-only local estimates. |
-| `CL_AUTH_REGISTER_RATE_LIMIT` | Maximum registration attempts per client IP and rate window. |
-| `CL_AUTH_LOGIN_RATE_LIMIT` | Maximum login attempts per client IP and rate window. |
-| `CL_AUTH_RATE_WINDOW_SECONDS` | Sliding window used by the single-process auth rate limiter. |
+| `CL_APP_ENV` | `production` or `prod` |
+| `CL_SECRET_KEY` | New secret, at least 32 characters; development placeholders are rejected |
+| `CL_DATABASE_URL` | PostgreSQL URL |
+| `CL_FRONTEND_ORIGIN` | Final HTTPS frontend origin; localhost is rejected |
+| `CL_GOOGLE_MAPS_API_KEY` | Backend-only Google Maps Platform key with Routes API enabled/restricted |
+| `CL_OBJECT_STORAGE_BACKEND` | `s3` |
+| `CL_S3_BUCKET` | Proof-storage bucket |
+| `CL_S3_REGION` | S3 region |
+| `CL_S3_ENDPOINT_URL` | Optional S3-compatible endpoint |
+| `CL_PROOF_MAX_BYTES` | Maximum proof file size |
+| `CL_ACCESS_TOKEN_EXPIRE_MINUTES` | JWT lifetime |
+| `CL_AUTH_REGISTER_RATE_LIMIT` | Registration limit per process/window |
+| `CL_AUTH_LOGIN_RATE_LIMIT` | Login limit per process/window |
+| `CL_AUTH_RATE_WINDOW_SECONDS` | Auth limiter window |
 
-All application configuration uses the `CL_` prefix.
+Application startup does **not** mutate the production schema. Run `alembic upgrade head` as an explicit release step before starting a new production version.
 
-When `CL_APP_ENV` is `production`, startup fails unless `CL_SECRET_KEY` is a
-new value of at least 32 characters. The development placeholders are rejected.
+Never commit the Google API key to GitHub or expose it in the React bundle. It belongs only in the backend deployment environment.
 
-## Frontend-compatible API
+## Canonical transaction API
 
-The existing frontend contract remains available:
+Authentication:
 
 - `POST /auth/register`
 - `POST /auth/login`
-- `POST /quote/estimate`
-- `POST /orders/create_compat`
+- `GET /auth/me`
+
+Pricing and creation:
+
+- `POST /quote` — coordinate-based quote using Haversine distance
+- `POST /quote/estimate` — address-based quote; Google Routes distance in production, fixed fallback only outside production
+- `POST /orders` — coordinate-based canonical creation
+- `POST /orders/create_compat` — address-based creation used by the current React sender UI
+
+Marketplace and transaction state:
+
 - `GET /orders/mine`
-- `GET /rewards/balance`
-- `POST /rewards/event` (trusted administrators only)
-- `GET /health`
+- `GET /orders/available`
+- `GET /orders/assigned`
+- `GET /orders/{order_id}` — canonical authorized detail
+- `POST /orders/{order_id}/claim`
+- `PATCH /orders/{order_id}/status`
+- `POST /orders/{order_id}/proof`
 
-`/quote/estimate` still returns `price_total` and `eta_min`.
-`/orders/create_compat` still accepts `origin`, `destination`, `vehicle`,
-`item_type`, `weight_kg`, `quantity`, and optional dimensions.
+Operational:
 
-## Marketplace API
+- `GET /health` — process liveness
+- `GET /ready` — database readiness
 
-- `GET /orders/available` lists only deliveries that match the authenticated
-  courier's transportation mode, weight/dimension limits, volume limit, and
-  required capabilities. Exact pickup/drop-off addresses and coordinates are
-  redacted until the courier successfully claims the order.
-- `POST /orders/{order_id}/claim` atomically changes one unclaimed `pending`
-  order to `assigned` and records the courier.
-- `PATCH /orders/{order_id}/status` enforces the sequence
-  `assigned -> picked_up -> delivered`. Customers and merchants may only cancel
-  their own order from a legal state. Couriers cannot update another courier's
-  delivery.
+## Lifecycle and authorization
 
-Supported transportation inputs include foot, bike, cargo bike, e-bike,
-scooter, motorcycle, car, EV, SUV, van, light truck, and box truck. Common
-hyphen, space, case, and legacy aliases are normalized by the quote engine.
+The server enforces all state transitions. The MVP lifecycle is:
 
-## Pricing and maps limitation
+`pending -> assigned -> picked_up -> in_transit -> delivered`
 
-`backend/quote_engine.py` is the only pricing implementation. It accounts for
-distance, weight, dimensions/volume, quantity, item type, weather, traffic,
-surge, transportation mode, and a mode-specific environmental adjustment.
+Cancellation is allowed only from explicitly legal states. The backend rejects illegal skips and regressions.
 
-Coordinate-based `/quote` requests use Haversine distance. The MVP has no maps
-or geocoding provider, so address-only requests use the fixed
-`CL_DEVELOPMENT_FALLBACK_MILES` value. Those responses are explicitly marked:
+Only the assigned courier can progress courier-owned states or submit proof. A delivery cannot become `delivered` without valid persisted proof. Sender owner, assigned courier, and admin may retrieve the full canonical transaction; unrelated users may not.
 
-```json
-{
-  "estimated": true,
-  "distance_source": "development_fallback"
-}
-```
+## Pricing snapshots
 
-Address text is never converted into fabricated coordinates and is never used
-as a pricing signal.
+`backend/quote_engine.py` remains the single pricing implementation. At Lift creation the backend persists an immutable pricing snapshot containing the pricing-engine version, final customer total, detailed breakdown, mileage, ETA, tier, vehicle type, and material pricing inputs. Historical orders are read from the persisted snapshot rather than silently repriced under later rules.
 
-## Tracking limitation
+## Google Routes distance integration
 
-The WebSocket is an authenticated, server-to-client event channel. Browser
-clients offer two WebSocket subprotocol values: `bearer` followed by the JWT:
+Production address-based quote/create resolves the sender's pickup and dropoff through Google Routes `computeRoutes` and requests only route distance. That real route mileage is passed into the existing Courier Lifts pricing engine; Google does not determine the customer price.
 
-```javascript
-const socket = new WebSocket(
-  "ws://127.0.0.1:8000/ws/track?order_id=123",
-  ["bearer", accessToken],
-);
-```
+The production pricing snapshot records `distance_source=google_routes`. Outside production, the existing `CL_DEVELOPMENT_FALLBACK_MILES` remains available for local development/tests.
 
-The server derives the role from the authenticated user. Only the order creator,
-assigned courier, or an administrator may join an order room. Client-sent
-tracking messages are rejected.
+Travel-mode mapping for the closed pilot:
 
-Order mutations publish typed `order.created`, `order.claimed`,
-`order.status_changed`, and `order.completed` events. The current connection
-manager is intentionally process-local. It loses rooms on restart and does not
-work across multiple server workers. Redis or another shared event layer must
-replace the in-memory service before horizontal scaling.
+- foot -> Google `WALK`
+- bike/cargo bike/e-bike -> `BICYCLE`
+- scooter/motorcycle -> `TWO_WHEELER`
+- car/EV/SUV/van/pickup/box truck -> `DRIVE`
 
-Authentication rate limits are also process-local and match the MVP's required
-single-worker deployment. Replace them with a shared limiter before scaling to
-multiple instances.
+Dedicated commercial-truck restriction routing is intentionally deferred until vehicle height/weight/axle attributes are modeled. This does not change Courier Lifts vehicle eligibility or pricing tiers.
 
-## Database migration warning
+If Google Routes fails, production address quote/create returns HTTP 503. It never substitutes the development fixed-mileage value.
 
-`Base.metadata.create_all()` creates a new database but does not alter an
-existing SQLite schema. The tracked database was development data and has been
-removed from the repository. Before deploying this branch over any persistent
-database:
+## Proof storage
 
-1. Back up the database.
-2. Use a fresh database for the MVP, or add and run a reviewed migration that
-   adds the courier profile, assigned-courier, address, distance, requirements,
-   and lifecycle fields.
-3. Set the new `CL_` environment variables in the deployment platform.
-4. Expect existing browser sessions to log in again if the signing-secret name
-   or value changes.
+Proof metadata is stored relationally on the order; proof file bytes are not stored in the database. Production requires S3-compatible object storage. The local filesystem backend remains available only for development/tests.
 
-Do not point this branch at a persistent database that must retain data until a
-migration has been reviewed.
+## Scaling constraint for MVP launch
+
+Authentication rate limiting and WebSocket tracking are process-local. Until those are replaced by shared infrastructure, deploy the MVP as one application process/worker and do not horizontally scale it.
+
+The database-backed transaction assignment/lifecycle remains authoritative, but multiple application workers would make rate-limit counters and live tracking rooms inconsistent.
+
+## Release and rollback
+
+See `LAUNCH_READINESS.md` for the launch gate and `RUNBOOK.md` for release, smoke-test, incident, and rollback procedure.

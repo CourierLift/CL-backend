@@ -163,19 +163,27 @@ def estimate_quote(
     surge: float,
     pickup: tuple[float, float] | None = None,
     dropoff: tuple[float, float] | None = None,
+    authoritative_distance_miles: float | None = None,
+    authoritative_distance_source: str | None = None,
     development_fallback_miles: float | None = None,
 ) -> QuoteResult:
-    """Estimate one delivery without calling maps or any external service.
+    """Estimate one delivery while keeping Courier Lifts as pricing authority.
 
-    Coordinate requests use Haversine distance. Address-only development requests
-    must pass an explicit fixed fallback distance; address text is never converted
-    into fabricated coordinates or a price signal.
+    Coordinates use Haversine distance. Production address flows may provide an
+    externally resolved route distance. Development-only address flows may pass
+    the explicit fixed fallback; address text itself is never used as a price signal.
     """
 
     mode = normalize_transport_mode(transportation_mode)
     spec = TRANSPORT_SPECS[mode]
 
-    if pickup is not None and dropoff is not None:
+    if authoritative_distance_miles is not None:
+        if authoritative_distance_miles <= 0:
+            raise ValueError("Authoritative route distance must be greater than zero")
+        miles = float(authoritative_distance_miles)
+        estimated = False
+        distance_source = (authoritative_distance_source or "external_route").strip()
+    elif pickup is not None and dropoff is not None:
         miles = haversine_miles(pickup, dropoff)
         estimated = False
         distance_source = "coordinate_haversine"
@@ -184,7 +192,7 @@ def estimate_quote(
         estimated = True
         distance_source = "development_fallback"
     else:
-        raise ValueError("Coordinates or an explicit development fallback are required")
+        raise ValueError("Coordinates or an explicit distance source are required")
 
     quantity = max(1, int(quantity))
     weight_lb = max(0.0, float(weight_lb))

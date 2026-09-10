@@ -101,6 +101,8 @@ def configure_production(monkeypatch):
     )
     monkeypatch.setenv("CL_OBJECT_STORAGE_BACKEND", "s3")
     monkeypatch.setenv("CL_S3_BUCKET", "courier-lifts-proofs")
+    monkeypatch.setenv("CL_FRONTEND_ORIGIN", "https://app.courierlifts.com")
+    monkeypatch.setenv("CL_GOOGLE_MAPS_API_KEY", "test-google-routes-key")
 
 
 def test_production_accepts_hardened_runtime_posture(monkeypatch):
@@ -113,6 +115,8 @@ def test_production_accepts_hardened_runtime_posture(monkeypatch):
     assert production.CL_DATABASE_URL.startswith("postgresql+psycopg://")
     assert production.CL_OBJECT_STORAGE_BACKEND == "s3"
     assert production.CL_S3_BUCKET == "courier-lifts-proofs"
+    assert production.CL_FRONTEND_ORIGIN == "https://app.courierlifts.com"
+    assert production.CL_GOOGLE_MAPS_API_KEY == "test-google-routes-key"
 
 
 def test_production_rejects_sqlite_database(monkeypatch):
@@ -128,6 +132,14 @@ def test_production_rejects_local_proof_storage(monkeypatch):
     monkeypatch.setenv("CL_OBJECT_STORAGE_BACKEND", "local")
 
     with pytest.raises(ValueError, match="requires S3-compatible object storage"):
+        Settings()
+
+
+def test_production_rejects_missing_google_routes_key(monkeypatch):
+    configure_production(monkeypatch)
+    monkeypatch.delenv("CL_GOOGLE_MAPS_API_KEY")
+
+    with pytest.raises(ValueError, match="CL_GOOGLE_MAPS_API_KEY"):
         Settings()
 
 
