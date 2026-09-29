@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - launch-readiness
       - transaction-core-hardening
   workflow_dispatch:
 
