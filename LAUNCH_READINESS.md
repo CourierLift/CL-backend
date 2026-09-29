@@ -32,6 +32,9 @@ The canonical release target remains the existing FastAPI + SQLAlchemy monolith.
 - [x] Development/test address pricing may still use the explicit fixed-mile fallback.
 - [x] Release/smoke/rollback procedure is documented in `RUNBOOK.md`.
 - [x] MVP single-worker deployment constraint is documented.
+- [x] Managed PostgreSQL URL schemes select the installed psycopg 3 driver, preserving encoded credentials and options.
+- [x] Alembic handles percent-encoded database credentials; PostgreSQL CI uses the provider's plain `postgresql://` URL format.
+- [x] Proposed Render configuration includes explicit migrations, a `/ready` health check, PostgreSQL 16, and one worker.
 
 ### Launch blockers / deployment requirements
 
@@ -43,6 +46,7 @@ The canonical release target remains the existing FastAPI + SQLAlchemy monolith.
 - [ ] Provision S3-compatible proof storage and set `CL_OBJECT_STORAGE_BACKEND=s3` plus bucket/region configuration.
 - [ ] Generate and securely store a new production `CL_SECRET_KEY` of at least 32 characters.
 - [ ] Set `CL_FRONTEND_ORIGIN` to the final HTTPS frontend origin.
+- [x] Save `CL_FRONTEND_ORIGIN=https://courierlifts-web.onrender.com` and `WEB_CONCURRENCY=1`; Render redeployed the current main commit and the frontend preflight now passes.
 - [ ] Run `alembic upgrade head` as an explicit release step before starting the new application version.
 - [ ] Configure HTTPS/TLS at the deployment edge.
 - [ ] Confirm production runs exactly one application process/worker until shared rate-limit/tracking infrastructure exists.
@@ -55,3 +59,5 @@ The canonical release target remains the existing FastAPI + SQLAlchemy monolith.
 ## Launch acceptance
 
 The application is not launch-ready merely because CI is green. Launch acceptance requires the verified transaction core plus successful staging deployment, live Google Routes validation, production configuration validation, backup/restore posture, monitoring, and one production-style smoke transaction.
+
+See `RENDER_RELEASE.md` for the September 29 hosting audit, exact service settings, proposed paid infrastructure, and remaining credential requirements. The saved environment values and proposed Blueprint have not established a production rollout.

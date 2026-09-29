@@ -52,8 +52,8 @@ Before deploying a candidate:
    curl -fsS "$BACKEND_URL/ready"
    ```
 
-8. Deploy the frontend with `BACKEND_URL` set to the canonical HTTPS backend origin and `VITE_COURIER_LIFTS_API_URL=/api`.
-9. Verify frontend `/api/health` and `/api/ready` reach the backend through the production proxy.
+8. Deploy the built frontend using the selected host. On Render, publish `dist`, set `VITE_COURIER_LIFTS_API_URL` to the public HTTPS backend origin, and set matching backend `CL_FRONTEND_ORIGIN`. On Netlify, set server-side `BACKEND_URL` and keep `VITE_COURIER_LIFTS_API_URL=/api`.
+9. Verify `/health` and `/ready` from the frontend's actual API path, including CORS for the Render deployment or the same-origin proxy for Netlify.
 10. Run a real address quote and confirm the response uses `google_routes` distance rather than the development fallback.
 11. Run the staging/production-style transaction smoke test from separate sender and courier sessions.
 
