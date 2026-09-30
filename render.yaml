@@ -1,5 +1,5 @@
-# Proposed production pilot configuration. Review paid plans and supply real
-# Google/S3 credentials before applying. Link the existing CL-backend service.
+# Approved production pilot configuration. Supply real Google/S3 credentials
+# before applying. Link the existing CL-backend service and courierlifts-db.
 # A repository commit alone does not change Render or provision resources.
 services:
   - type: web
@@ -8,7 +8,7 @@ services:
     repo: https://github.com/CourierLift/CL-backend
     branch: main
     region: oregon
-    plan: starter
+    plan: 0.5c-512mb
     numInstances: 1
     autoDeployTrigger: checksPass
     buildCommand: pip install -r requirements.txt
@@ -45,10 +45,11 @@ services:
 
 databases:
   - name: courierlifts-db
-    databaseName: courier_lifts
-    user: courier_lifts
+    databaseName: courierlifts_db
+    user: courierlifts_db_user
     region: oregon
-    plan: basic-256mb
+    plan: 0.1c-256mb
     postgresMajorVersion: "16"
     diskSizeGB: 1
+    storageAutoscalingEnabled: false
     ipAllowList: []
