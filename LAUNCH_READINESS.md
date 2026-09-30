@@ -40,7 +40,9 @@ The canonical release target remains the existing FastAPI + SQLAlchemy monolith.
 
 - [ ] Store a valid restricted Google Maps Platform key as backend-only `CL_GOOGLE_MAPS_API_KEY`, with Routes API enabled and billing active.
 - [ ] Verify a live production-style address quote returns `distance_source=google_routes` for known real addresses.
-- [ ] Provision managed PostgreSQL and set `CL_DATABASE_URL`.
+- [x] Provision private paid PostgreSQL 16 in Oregon: `courierlifts-db` (`dpg-dauihb893c1s73ecnihg-a`), 256 MB compute and 1 GB storage; Render reports available.
+- [ ] Preserve existing data, connect the backend through the internal `CL_DATABASE_URL`, and verify connectivity from Render.
+- [ ] Apply the approved $7/month always-on backend compute plan; the existing service remains Free.
 - [ ] Confirm automated PostgreSQL backups and retention policy.
 - [ ] Complete one restore drill before public launch.
 - [ ] Provision S3-compatible proof storage and set `CL_OBJECT_STORAGE_BACKEND=s3` plus bucket/region configuration.
@@ -60,4 +62,4 @@ The canonical release target remains the existing FastAPI + SQLAlchemy monolith.
 
 The application is not launch-ready merely because CI is green. Launch acceptance requires the verified transaction core plus successful staging deployment, live Google Routes validation, production configuration validation, backup/restore posture, monitoring, and one production-style smoke transaction.
 
-See `RENDER_RELEASE.md` for the September 29 hosting audit, exact service settings, proposed paid infrastructure, and remaining credential requirements. The saved environment values and proposed Blueprint have not established a production rollout.
+See `RENDER_RELEASE.md` for the September 29 historical audit, September 30 frontend deployment and approved database provisioning, exact service settings, and remaining credential requirements. The new database is not yet connected, and production rollout has not been established.
