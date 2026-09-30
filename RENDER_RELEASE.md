@@ -1,6 +1,14 @@
 # CourierLifts Render release
 
-## Verified hosting audit — September 29, 2026
+## Current deployment - September 30, 2026
+
+The frontend candidate is now deployed and renders the actual React sign-in screen at https://courierlifts-web.onrender.com/. Render deployment `dep-dauic2gjo6nc738hrkv0` published application commit `416e64c0fd0f22d61b9d170656f3d8db3f0d8228` at 15:09:20 UTC. The user applied branch `launch-readiness`, build `npm ci && npm run check && npm run build`, publish directory `dist`, and auto-deploy off. All 13 release checks, TypeScript, and the Vite build passed on Render's Node 22.23.3. Browser verification confirmed the sign-in UI and hashed JavaScript asset `/assets/index-BoVdMf26.js`.
+
+The backend remains on its existing main commit and free instance. It has not been promoted to the production launch candidate. Following a cold start, Render logs record successful startup and `GET /health` returning 200 at 15:10:57 UTC. A browser URL-policy block prevented a fresh response-body/readiness check in this pass. No authenticated customer/courier transaction was performed.
+
+Still required: frontend routing/security/cache settings; production PostgreSQL with backup/restore verification; permanent proof storage; Google Routes credentials and a real-distance quote; production secrets/migrations; monitoring; and the full sender/courier delivery test. The below September 29 section is historical and its unbuilt-frontend finding has been resolved. Deployment stays manual during setup; final main promotion and checks-passing auto-deploy remain future release steps.
+
+## Historical hosting audit — September 29, 2026
 
 The connected workspace contains these existing services:
 
