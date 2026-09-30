@@ -1,0 +1,55 @@
+# Approved production pilot configuration. Supply real Google/S3 credentials
+# before applying. Link the existing CL-backend service and courierlifts-db.
+# A repository commit alone does not change Render or provision resources.
+services:
+  - type: web
+    runtime: python
+    name: CL-backend
+    repo: https://github.com/CourierLift/CL-backend
+    branch: main
+    region: oregon
+    plan: 0.5c-512mb
+    numInstances: 1
+    autoDeployTrigger: checksPass
+    buildCommand: pip install -r requirements.txt
+    preDeployCommand: alembic upgrade head
+    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /ready
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11.15"
+      - key: WEB_CONCURRENCY
+        value: "1"
+      - key: CL_APP_ENV
+        value: production
+      - key: CL_DATABASE_URL
+        fromDatabase:
+          name: courierlifts-db
+          property: connectionString
+      - key: CL_SECRET_KEY
+        generateValue: true
+      - key: CL_FRONTEND_ORIGIN
+        value: https://courierlifts-web.onrender.com
+      - key: CL_GOOGLE_MAPS_API_KEY
+        sync: false
+      - key: CL_OBJECT_STORAGE_BACKEND
+        value: s3
+      - key: CL_S3_BUCKET
+        sync: false
+      - key: CL_S3_REGION
+        sync: false
+      - key: AWS_ACCESS_KEY_ID
+        sync: false
+      - key: AWS_SECRET_ACCESS_KEY
+        sync: false
+
+databases:
+  - name: courierlifts-db
+    databaseName: courierlifts_db
+    user: courierlifts_db_user
+    region: oregon
+    plan: 0.1c-256mb
+    postgresMajorVersion: "16"
+    diskSizeGB: 1
+    storageAutoscalingEnabled: false
+    ipAllowList: []

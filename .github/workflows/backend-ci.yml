@@ -5,6 +5,7 @@ on:
   push:
     branches:
       - main
+      - launch-readiness
       - transaction-core-hardening
   workflow_dispatch:
 
@@ -84,7 +85,9 @@ jobs:
 
     env:
       CL_APP_ENV: test
-      CL_DATABASE_URL: "postgresql+psycopg://courier_lifts:courier_lifts@localhost:5432/courier_lifts_test"
+      # Exercise the provider URL format used by Render, including normalization
+      # to the installed psycopg 3 driver in the application and migrations.
+      CL_DATABASE_URL: "postgresql://courier_lifts:courier_lifts@localhost:5432/courier_lifts_test"
       CL_SECRET_KEY: ci-only-secret-not-for-production
       PYTHONDONTWRITEBYTECODE: "1"
       PYTHONUNBUFFERED: "1"

@@ -2,9 +2,10 @@
 
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field, model_validator
+from pydantic import BaseModel, Field, field_validator, model_validator
 
 
 load_dotenv(override=False)
@@ -37,7 +38,8 @@ class Settings(BaseModel):
     CL_DATABASE_URL: str = Field(
         default_factory=lambda: os.getenv(
             "CL_DATABASE_URL", "sqlite:///./courier_lifts.db"
-        )
+        ),
+        validate_default=True,
     )
     CL_FRONTEND_ORIGIN: str = Field(
         default_factory=lambda: os.getenv(
@@ -49,6 +51,9 @@ class Settings(BaseModel):
             os.getenv("CL_DEVELOPMENT_FALLBACK_MILES", "8.0")
         ),
         gt=0,
+    )
+    CL_GOOGLE_MAPS_API_KEY: str | None = Field(
+        default_factory=lambda: os.getenv("CL_GOOGLE_MAPS_API_KEY")
     )
     CL_AUTH_REGISTER_RATE_LIMIT: int = Field(
         default_factory=lambda: int(
@@ -90,6 +95,19 @@ class Settings(BaseModel):
         gt=0,
     )
 
+    @field_validator("CL_DATABASE_URL", mode="before")
+    @classmethod
+    def use_installed_postgres_driver(cls, value: object) -> object:
+        # Managed providers supply plain PostgreSQL URLs. SQLAlchemy otherwise
+        # selects psycopg2, while this application installs psycopg (version 3).
+        # Replace only the scheme so encoded credentials and options survive.
+        if not isinstance(value, str):
+            return value
+        for prefix in ("postgresql://", "postgres://"):
+            if value.startswith(prefix):
+                return "postgresql+psycopg://" + value[len(prefix):]
+        return value
+
     @model_validator(mode="after")
     def validate_runtime_posture(self) -> "Settings":
         backend = self.CL_OBJECT_STORAGE_BACKEND.strip().lower()
@@ -108,6 +126,19 @@ class Settings(BaseModel):
             raise ValueError("Production CL_DATABASE_URL must use PostgreSQL")
         if backend != "s3" or not (self.CL_S3_BUCKET or "").strip():
             raise ValueError("Production proof storage requires S3-compatible object storage")
+        if not (self.CL_GOOGLE_MAPS_API_KEY or "").strip():
+            raise ValueError("Production address pricing requires CL_GOOGLE_MAPS_API_KEY")
+
+        origin = self.CL_FRONTEND_ORIGIN.strip().rstrip("/")
+        parsed = urlparse(origin)
+        hostname = (parsed.hostname or "").lower()
+        if parsed.scheme != "https" or not parsed.netloc:
+            raise ValueError("Production CL_FRONTEND_ORIGIN must be an HTTPS origin")
+        if hostname in {"localhost", "127.0.0.1", "::1"} or hostname.endswith(".localhost"):
+            raise ValueError("Production CL_FRONTEND_ORIGIN cannot use localhost")
+        if parsed.path or parsed.params or parsed.query or parsed.fragment:
+            raise ValueError("CL_FRONTEND_ORIGIN must contain only scheme, host, and optional port")
+        self.CL_FRONTEND_ORIGIN = origin
         return self
 
 

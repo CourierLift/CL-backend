@@ -21,12 +21,14 @@ from .schemas import (
     StatusUpdate,
 )
 from .services.eligibility import evaluate_courier_eligibility
+from .services.route_distance import RouteDistanceError, google_route_distance
 from .services.tracking import OrderEventType, make_order_event, tracking_service
 from .settings import settings
 
 
 router = APIRouter(tags=["orders"])
 CREATOR_ROLES = {UserRole.customer, UserRole.merchant}
+PRODUCTION_ENVS = {"prod", "production"}
 
 ALLOWED_TRANSITIONS: dict[OrderStatus, set[OrderStatus]] = {
     OrderStatus.pending: {OrderStatus.assigned, OrderStatus.canceled},
@@ -72,9 +74,31 @@ def _coordinate_quote(payload: QuoteRequest) -> QuoteResult:
     )
 
 
-def _address_quote(payload: AddressQuoteRequest) -> QuoteResult:
+async def _address_quote(payload: AddressQuoteRequest) -> QuoteResult:
+    if settings.CL_APP_ENV.strip().lower() in PRODUCTION_ENVS:
+        try:
+            route = await google_route_distance(
+                origin=payload.origin,
+                destination=payload.destination,
+                transportation_mode=payload.vehicle,
+                api_key=settings.CL_GOOGLE_MAPS_API_KEY or "",
+            )
+        except RouteDistanceError as exc:
+            raise HTTPException(
+                status_code=503,
+                detail="Production route distance is temporarily unavailable",
+            ) from exc
+        distance_kwargs = {
+            "authoritative_distance_miles": route.miles,
+            "authoritative_distance_source": route.source,
+        }
+    else:
+        distance_kwargs = {
+            "development_fallback_miles": settings.CL_DEVELOPMENT_FALLBACK_MILES,
+        }
+
     return estimate_quote(
-        development_fallback_miles=settings.CL_DEVELOPMENT_FALLBACK_MILES,
+        **distance_kwargs,
         transportation_mode=payload.vehicle,
         item_type=payload.item_type,
         quantity=payload.quantity,
@@ -177,8 +201,8 @@ def quote_price(payload: QuoteRequest) -> QuoteResponse:
 
 
 @router.post("/quote/estimate", response_model=QuoteEstimateResponse)
-def quote_estimate(payload: AddressQuoteRequest) -> QuoteEstimateResponse:
-    return _estimate_response(_address_quote(payload))
+async def quote_estimate(payload: AddressQuoteRequest) -> QuoteEstimateResponse:
+    return _estimate_response(await _address_quote(payload))
 
 
 @router.post(
@@ -251,7 +275,7 @@ async def create_order_compat(
     current_user: User = Depends(get_current_user),
 ) -> Order:
     _require_order_creator(current_user)
-    quote = _address_quote(payload)
+    quote = await _address_quote(payload)
     weight_lb = payload.weight_kg * 2.2046226218
     pricing_snapshot = _pricing_snapshot(
         quote,
