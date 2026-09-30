@@ -27,9 +27,19 @@ Database baseline is approximately $6.30/month. The approved $7/month, 512 MB ba
 
 The database is provisioned but **not connected to the application**. No connection URL was retrieved or installed, no application migration ran, and no old data was moved or deleted. A read-only connector query was blocked because the database correctly denies all external connections; retain that restriction and verify connectivity from the same-region backend. Resource status `available` is not an application connectivity test.
 
-Before changing the running backend or its database URL, inspect the existing database configuration and preserve any existing records. Complete Google Routes, private proof storage, and production secrets before enabling production mode. The backend's launch candidate must be deployed with migrations and the internal database URL. Backup retention and a restore drill remain unverified.
+The user subsequently confirmed the existing SQLite records are tests and may be left behind; see the test-data cutover decision below. Complete Google Routes, private proof storage, and production secrets before enabling production mode. The backend's launch candidate must be deployed with migrations and the internal database URL. Backup retention and a restore drill remain unverified.
 
 `render.yaml` now matches the provisioned database's immutable database/user names and current compute-plan IDs. Import/link the existing database and CL-backend when applying it; do not create duplicates. Syntax and resource mapping were checked locally; authenticated Render CLI validation was unavailable.
+
+## Test-data cutover decision and login secret - September 30, 2026
+
+At 10:43 AM America/Chicago, the user confirmed the existing SQLite accounts/orders are tests. Proceed with a fresh application database; no old test-record transfer is required. The reported legacy variable begins `DATABASE` and its value begins `sqlite`; the current application reads `CL_DATABASE_URL`, so do not mistake the legacy variable for an active production database connection.
+
+A cryptographically random 64-character `CL_SECRET_KEY` was saved directly to the canonical backend's Render environment, preserving all other variables. The value is not included in this repository. Existing test login tokens are invalidated when the new configuration runs. Render automatically triggered deploy `dep-dauisjm7bikc73aq8m90` of the unchanged main application commit `7580a9ca95f0d0795b6362e0b638181359f1b3c5`.
+
+The database remains available and private. The backend remains on Free; upgrade it through **Upgrade your instance** on the existing CL-backend dashboard, choosing the approved $7/month 512 MB plan. The connector does not expose existing compute-plan updates or retrieval of database connection credentials.
+
+Next, stage the launch candidate with explicit migrations before adding the database's internal URL as `CL_DATABASE_URL`. Do not attach the empty PostgreSQL database to the old main configuration: it lacks the candidate's automatic psycopg 3 URL normalization, and development startup can create tables before Alembic, conflicting with a fresh migration. Use the Dashboard's Save only option when staging dependent environment changes. Keep production mode pending until Google Routes and persistent photo storage credentials are ready.
 
 ## Historical hosting audit — September 29, 2026
 
