@@ -8,6 +8,29 @@ The backend remains on its existing main commit and free instance. It has not be
 
 Still required: frontend routing/security/cache settings; production PostgreSQL with backup/restore verification; permanent proof storage; Google Routes credentials and a real-distance quote; production secrets/migrations; monitoring; and the full sender/courier delivery test. The below September 29 section is historical and its unbuilt-frontend finding has been resolved. Deployment stays manual during setup; final main promotion and checks-passing auto-deploy remain future release steps.
 
+## Approved database provisioned - September 30, 2026
+
+The user approved the approximately $13.30/month Render baseline. Created `courierlifts-db` at 15:20:13 UTC; Render subsequently reported `available`.
+
+| Setting | Actual value |
+| --- | --- |
+| Render resource | `dpg-dauihb893c1s73ecnihg-a` |
+| Dashboard | https://dashboard.render.com/d/dpg-dauihb893c1s73ecnihg-a |
+| Plan | `0.1c-256mb` ($6/month compute) |
+| PostgreSQL | 16 |
+| Region | Oregon, matching CL-backend |
+| Database / user | `courierlifts_db` / `courierlifts_db_user` |
+| Storage | 1 GB ($0.30/month), autoscaling off |
+| External access | Disabled: `ipAllowList: []` |
+
+Database baseline is approximately $6.30/month. The approved $7/month, 512 MB backend upgrade has not been applied: CL-backend still uses the Free plan. The connector cannot update an existing service's compute plan; use the existing service's Dashboard Settings / Instance Type (or Compute Plan), selecting `0.5c-512mb` / the $7 option.
+
+The database is provisioned but **not connected to the application**. No connection URL was retrieved or installed, no application migration ran, and no old data was moved or deleted. A read-only connector query was blocked because the database correctly denies all external connections; retain that restriction and verify connectivity from the same-region backend. Resource status `available` is not an application connectivity test.
+
+Before changing the running backend or its database URL, inspect the existing database configuration and preserve any existing records. Complete Google Routes, private proof storage, and production secrets before enabling production mode. The backend's launch candidate must be deployed with migrations and the internal database URL. Backup retention and a restore drill remain unverified.
+
+`render.yaml` now matches the provisioned database's immutable database/user names and current compute-plan IDs. Import/link the existing database and CL-backend when applying it; do not create duplicates. Syntax and resource mapping were checked locally; authenticated Render CLI validation was unavailable.
+
 ## Historical hosting audit — September 29, 2026
 
 The connected workspace contains these existing services:
@@ -49,9 +72,9 @@ The frontend's `render.yaml` and this repository's `render.yaml` record the desi
 
 Add frontend `SKIP_INSTALL_DEPS=true` when its explicit `npm ci` build command is applied. Configure the `/*` rewrite to `/index.html` and the headers from the frontend Blueprint. Render static sites do not run Netlify Functions, so this deployment uses the direct backend origin and exact backend CORS. Never put Google, database, AWS, or signing credentials in `VITE_*` variables.
 
-## Proposed pilot infrastructure and cost
+## Approved pilot infrastructure and cost
 
-The backend Blueprint proposes an always-on Starter web service and a Basic-256mb PostgreSQL 16 instance in Oregon with 1 GB storage and external database access disabled. Published monthly pricing checked September 29: $7 web compute + $6 database compute + $0.30 for 1 GB storage = approximately **$13.30/month**, before usage charges, taxes, Google Routes, and object storage. Static hosting uses Render's included quotas. These paid resources have not been provisioned.
+The approved setup uses a $7 always-on 512 MB web service (`0.5c-512mb`) and a $6 256 MB PostgreSQL 16 instance (`0.1c-256mb`) in Oregon with 1 GB storage and external database access disabled. Published monthly pricing rechecked September 30: $7 web compute + $6 database compute + $0.30 for 1 GB storage = approximately **$13.30/month**, before usage charges, taxes, Google Routes, and object storage. Static hosting uses Render's included quotas. The database is provisioned; the backend compute upgrade remains pending.
 
 Paid Render PostgreSQL provides point-in-time recovery. The documented window is three days on Hobby and seven days on Pro or higher; confirm the actual workspace plan and retention, create an export, and complete a restore drill before accepting real delivery data. Do not substitute an expiring free database for the production backup requirement.
 
@@ -78,7 +101,7 @@ Use a private proof bucket and a deployment identity scoped to the application's
 
 ## Apply and verify
 
-1. Confirm green release CI on both launch PRs. Provision the reviewed PostgreSQL plan and permanent proof bucket, then supply Google/S3 credentials.
+1. Confirm green release CI on both launch PRs. Reuse the provisioned PostgreSQL instance, provision permanent proof storage, and supply Google/S3 credentials.
 2. Confirm database backups and restore capability. Preserve any existing application data before switching databases.
 3. Apply the reviewed service settings and stage the candidate commits using production-style infrastructure. Record the exact commits used. Keep the launch gate open until the live checks pass.
 4. Confirm Alembic reaches head before application startup, one worker runs, `/health` reports production, and `/ready` is 200.
