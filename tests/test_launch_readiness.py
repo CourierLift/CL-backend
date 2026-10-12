@@ -1,3 +1,4 @@
+from tests.order_helpers import quoted_create  # COMPAT: quote-bound creation
 import pytest
 from pydantic import ValidationError
 
@@ -115,8 +116,7 @@ def test_production_created_lift_persists_google_distance_snapshot(
     monkeypatch.setattr(orders_module, "google_route_distance", fake_route_distance)
     sender = user_factory(role="customer")
 
-    response = client.post(
-        "/orders/create_compat",
+    response = quoted_create(client, "/orders/create_compat",
         json=address_payload(),
         headers=sender["headers"],
     )

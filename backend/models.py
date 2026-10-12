@@ -14,6 +14,7 @@ from sqlalchemy import (
     ForeignKey,
     Integer,
     String,
+    UniqueConstraint,
 )
 from sqlalchemy.orm import relationship
 
@@ -94,6 +95,8 @@ class Order(Base):
     __table_args__ = (
         CheckConstraint("quantity > 0", name="ck_orders_quantity_positive"),
         CheckConstraint("weight_lb >= 0", name="ck_orders_weight_nonnegative"),
+        UniqueConstraint("user_id", "idempotency_key", name="uq_orders_user_idempotency_key"),
+        UniqueConstraint("quote_id", name="uq_orders_quote_id"),
     )
 
     id = Column(Integer, primary_key=True, index=True)
@@ -131,6 +134,10 @@ class Order(Base):
     surge_multiplier = Column(Float, default=1.0, nullable=False)
     pricing_engine_version = Column(String, nullable=False)
     pricing_snapshot = Column(JSON, nullable=False)
+    # Quote binding and creation idempotency (migration 0005). Legacy rows are NULL.
+    quote_id = Column(String(64), ForeignKey("quotes.id"), nullable=True)
+    idempotency_key = Column(String(128), nullable=True)
+    request_hash = Column(String(64), nullable=True)
 
     status = Column(
         Enum(OrderStatus),
@@ -158,6 +165,28 @@ class Order(Base):
         uselist=False,
         cascade="all, delete-orphan",
     )
+
+
+class Quote(Base):
+    """Server-issued, owner-bound, expiring price quote that an order must consume."""
+
+    __tablename__ = "quotes"
+
+    id = Column(String(64), primary_key=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    kind = Column(String(16), nullable=False)  # "address" or "coordinate"
+    details_hash = Column(String(64), nullable=False)
+    pricing_conditions = Column(JSON, nullable=False)
+    pricing_snapshot = Column(JSON, nullable=False)
+    price_total = Column(Float, nullable=False)
+    eta_min = Column(Integer, nullable=False)
+    distance_miles = Column(Float, nullable=False)
+    distance_estimated = Column(Boolean, nullable=False)
+    distance_source = Column(String, nullable=False)
+    tier = Column(String, nullable=False)
+    pricing_engine_version = Column(String, nullable=False)
+    created_at = Column(DateTime(timezone=True), default=utc_now, nullable=False)
+    expires_at = Column(DateTime(timezone=True), nullable=False)
 
 
 class DeliveryProof(Base):

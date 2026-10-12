@@ -95,6 +95,24 @@ class Settings(BaseModel):
         gt=0,
     )
 
+    CL_QUOTE_TTL_SECONDS: int = Field(
+        default_factory=lambda: int(os.getenv("CL_QUOTE_TTL_SECONDS", "900")),
+        gt=0,
+    )
+    # Server-controlled pilot pricing conditions. Client-supplied weather,
+    # traffic, and surge values are accepted for compatibility but ignored.
+    CL_PILOT_WEATHER: str = Field(
+        default_factory=lambda: os.getenv("CL_PILOT_WEATHER", "clear")
+    )
+    CL_PILOT_TRAFFIC: str = Field(
+        default_factory=lambda: os.getenv("CL_PILOT_TRAFFIC", "medium")
+    )
+    CL_PILOT_SURGE: float = Field(
+        default_factory=lambda: float(os.getenv("CL_PILOT_SURGE", "1.0")),
+        ge=1.0,
+        le=3.0,
+    )
+
     @field_validator("CL_DATABASE_URL", mode="before")
     @classmethod
     def use_installed_postgres_driver(cls, value: object) -> object:

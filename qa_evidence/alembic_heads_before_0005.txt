@@ -1,0 +1,4 @@
+$ git rev-parse HEAD
+a320a65f9d8be8c9f0d2a3e790f98a7ed3ff668e
+$ alembic heads
+0004_pricing_snapshot (head)

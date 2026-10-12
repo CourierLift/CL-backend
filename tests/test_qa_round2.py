@@ -1,5 +1,13 @@
-"""QA round 2 reproductions (local only, not committed)."""
+"""QA round 2 reproductions.
+
+CONVERTED (qa/quote-idempotency): the original versions of these tests asserted
+the DEFECTIVE behavior found at a320a65 (client-controlled price, quote not bound
+to order, duplicate orders on retry). The unchanged originals are kept in
+qa_evidence/original_repros/ with their output in qa_evidence/qa_round2_*.txt.
+Here the same reproductions now assert the CORRECTED behavior.
+"""
 import json
+from tests.order_helpers import quoted_create
 P = {"origin":"100 Main Street","destination":"200 Oak Avenue","vehicle":"car","item_type":"standard",
      "weight_kg":8,"quantity":2,"length_in":24,"width_in":18,"height_in":14,
      "weather":"clear","traffic":"medium","surge":1.0,"delivery_requirements":[]}
@@ -10,30 +18,40 @@ def test_price_inputs_client_controlled(client, user_factory):
     prices = {}
     for label, over in [("baseline",{}),("surge3",{"surge":3.0}),("weather_bogus",{"weather":"zzz"}),
                         ("traffic_bogus",{"traffic":"zzz"}),("traffic_low",{"traffic":"low"})]:
-        r = client.post("/orders/create_compat", json={**P, **over}, headers=c["headers"])
+        r = quoted_create(client, "/orders/create_compat", json={**P, **over}, headers=c["headers"])
         assert r.status_code == 201, r.text
         prices[label] = r.json()["price"]
     log("prices_by_client_input", prices)
-    assert len(set(prices.values())) > 1  # demonstrates client inputs change price
+    # CONVERTED: was `> 1` (defect). Client conditions must not change price.
+    assert len(set(prices.values())) == 1
 
 def test_quote_not_bound_to_order(client, user_factory):
     c = user_factory(role="customer")
-    q = client.post("/quote/estimate", json={**P, "surge":2.5}).json()["price_total"]
-    o = client.post("/orders/create_compat", json={**P, "surge":1.0}, headers=c["headers"])
+    qr = client.post("/quote/estimate", json={**P, "surge":2.5}, headers=c["headers"]).json()
+    q = qr["price_total"]
+    o = client.post("/orders/create_compat", json={**P, "surge":1.0, "quote_id": qr["quote_id"]},
+                    headers={**c["headers"], "Idempotency-Key": "qa-bind-0001"})
     log("quote_vs_order", {"quoted":q, "created_status":o.status_code, "order_price":o.json().get("price")})
-    assert o.status_code == 201 and o.json()["price"] != q
+    # CONVERTED: was `price != q` (defect). The order must carry the quoted price.
+    assert o.status_code == 201 and o.json()["price"] == q
 
 def test_retry_creates_duplicate_records(client, user_factory):
     c = user_factory(role="customer")
+    qid = client.post("/quote/estimate", json=P, headers=c["headers"]).json()["quote_id"]
+    codes = []
     for _ in range(2):
-        assert client.post("/orders/create_compat", json=P, headers={**c["headers"],"Idempotency-Key":"k1"}).status_code == 201
+        # key lengthened from "k1" to satisfy the 8-128 char contract
+        codes.append(client.post("/orders/create_compat", json={**P, "quote_id": qid},
+                                 headers={**c["headers"],"Idempotency-Key":"k1-retry-key"}).status_code)
     mine = client.get("/orders/mine", headers=c["headers"]).json()
     log("orders_after_same_key_retry", len(mine))
-    assert len(mine) == 2
+    # CONVERTED: was `len(mine) == 2` (defect). Retry returns the original order.
+    assert codes == [201, 200]
+    assert len(mine) == 1
 
 def _to_transit(client, user_factory):
     c = user_factory(role="customer"); k = user_factory(role="courier", transportation_mode="car")
-    oid = client.post("/orders/create_compat", json=P, headers=c["headers"]).json()["id"]
+    oid = quoted_create(client, "/orders/create_compat", json=P, headers=c["headers"]).json()["id"]
     assert client.post(f"/orders/{oid}/claim", headers=k["headers"]).status_code == 200
     return c, k, oid
 
