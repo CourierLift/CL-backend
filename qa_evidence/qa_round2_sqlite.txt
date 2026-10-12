@@ -1,0 +1,5 @@
+QA prices_by_client_input: {"baseline": 25.09, "surge3": 75.26, "weather_bogus": 25.09, "traffic_bogus": 25.09, "traffic_low": 22.4}
+.QA quote_vs_order: {"quoted": 62.72, "created_status": 201, "order_price": 25.09}
+.QA orders_after_same_key_retry: 2
+.QA permission_matrix: {"other_customer_detail": 403, "other_courier_detail": 403, "no_token_detail": 401, "other_courier_status": 403, "customer_status": 403, "skip_to_delivered": 409, "pickup": 200, "pickup_repeat": 409, "transit": 200, "deliver_without_proof": 409, "customer_proof": 403, "other_courier_proof": 403, "bad_type_proof": 415, "proof": 201, "proof_repeat": 409, "deliver": 200, "deliver_repeat": 409, "courier_history_has_delivered": true}
+4 passed, 1 warning in 4.13s
