@@ -9,6 +9,7 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from . import models  # noqa: F401 - registers SQLAlchemy models
 from .database import Base, engine
+from .orders import create_router as order_create_router
 from .orders import router as orders_router
 from .routes.auth_routes_jwt import router as auth_router
 from .routes.courier_orders import router as courier_orders_router
@@ -70,6 +71,7 @@ def ready() -> dict[str, object]:
 
 app.include_router(auth_router)
 app.include_router(rewards_router)
+app.include_router(order_create_router)
 app.include_router(orders_router)
 app.include_router(courier_orders_router)
 app.include_router(order_detail_router)

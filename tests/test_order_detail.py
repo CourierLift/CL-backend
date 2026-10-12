@@ -1,11 +1,11 @@
+from tests.order_helpers import quoted_create  # COMPAT: quote-bound creation
 from backend.auth_jwt import create_access_token, hash_password
 from backend.database import SessionLocal
 from backend.models import User, UserRole
 
 
 def create_order(client, headers):
-    response = client.post(
-        "/orders/create_compat",
+    response = quoted_create(client, "/orders/create_compat",
         headers=headers,
         json={
             "origin": "100 Main Street",

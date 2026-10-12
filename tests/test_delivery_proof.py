@@ -1,3 +1,4 @@
+from tests.order_helpers import quoted_create  # COMPAT: quote-bound creation
 from backend.models import DeliveryProof
 from backend.services.object_storage import get_object_storage
 
@@ -5,8 +6,7 @@ from backend.services.object_storage import get_object_storage
 def create_and_claim_in_transit(client, user_factory):
     customer = user_factory(role="customer")
     courier = user_factory(role="courier", transportation_mode="car")
-    order = client.post(
-        "/orders/create_compat",
+    order = quoted_create(client, "/orders/create_compat",
         headers=customer["headers"],
         json={
             "origin": "100 Main Street",
@@ -66,8 +66,7 @@ def test_only_assigned_courier_can_submit_proof(client, user_factory):
 def test_proof_must_be_submitted_in_transit(client, user_factory):
     customer = user_factory(role="customer")
     courier = user_factory(role="courier", transportation_mode="car")
-    order = client.post(
-        "/orders/create_compat",
+    order = quoted_create(client, "/orders/create_compat",
         headers=customer["headers"],
         json={"origin": "A", "destination": "B", "vehicle": "car", "item_type": "standard"},
     ).json()

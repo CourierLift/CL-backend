@@ -1,3 +1,4 @@
+from tests.order_helpers import quoted_create  # COMPAT: quote-bound creation
 from datetime import datetime
 
 import pytest
@@ -5,8 +6,7 @@ from starlette.websockets import WebSocketDisconnect
 
 
 def create_delivery(client, headers):
-    return client.post(
-        "/orders/create_compat",
+    return quoted_create(client, "/orders/create_compat",
         headers=headers,
         json={
             "origin": "100 Main Street",

@@ -123,6 +123,12 @@ class AddressQuoteRequest(BaseModel):
         return _normalized_requirements(value)
 
 
+class PricingConditions(BaseModel):
+    weather: str
+    traffic: str
+    surge: float
+
+
 class QuoteResponse(BaseModel):
     price: float
     eta: int
@@ -130,6 +136,11 @@ class QuoteResponse(BaseModel):
     tier: str
     estimated: bool
     distance_source: str
+    # Present only for authenticated order creators (orderable server quote).
+    quote_id: str | None = None
+    expires_at: datetime | None = None
+    expires_in_seconds: int | None = None
+    pricing_conditions: PricingConditions | None = None
 
 
 class QuoteEstimateResponse(BaseModel):
@@ -139,14 +150,21 @@ class QuoteEstimateResponse(BaseModel):
     tier: str
     estimated: bool
     distance_source: str
+    # Present only for authenticated order creators (orderable server quote).
+    quote_id: str | None = None
+    expires_at: datetime | None = None
+    expires_in_seconds: int | None = None
+    pricing_conditions: PricingConditions | None = None
 
 
 class OrderCreate(QuoteRequest):
-    pass
+    # Optional at the schema level so the idempotency replay check runs first;
+    # a missing value is rejected by the route with 422 quote_required.
+    quote_id: str | None = Field(default=None, max_length=64)
 
 
 class OrderCreateCompat(AddressQuoteRequest):
-    pass
+    quote_id: str | None = Field(default=None, max_length=64)
 
 
 class OrderOut(BaseModel):
@@ -176,6 +194,7 @@ class OrderOut(BaseModel):
     distance_source: str
     pricing_engine_version: str
     pricing_snapshot: dict[str, object]
+    quote_id: str | None = None
     status: str
     created_at: datetime
     assigned_at: datetime | None

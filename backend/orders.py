@@ -1,14 +1,21 @@
 """Canonical quote and marketplace order routes."""
 
-from datetime import datetime, timezone
+import hashlib
+import json
+import re
+import secrets
+from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import update
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+from .api_errors import StructuredErrorRoute, api_error
 from .database import get_db
 from .deps_jwt import get_current_user
-from .models import Order, OrderStatus, User, UserRole
+from .models import Order, OrderStatus, Quote, User, UserRole
 from .quote_engine import PRICING_ENGINE_VERSION, QuoteResult, estimate_quote
 from .schemas import (
     AddressQuoteRequest,
@@ -27,6 +34,9 @@ from .settings import settings
 
 
 router = APIRouter(tags=["orders"])
+# Order creation routes use the structured {"detail": {"code", ...}} error contract.
+create_router = APIRouter(tags=["orders"], route_class=StructuredErrorRoute)
+optional_oauth2_scheme = OAuth2PasswordBearer(tokenUrl="/auth/login", auto_error=False)
 CREATOR_ROLES = {UserRole.customer, UserRole.merchant}
 PRODUCTION_ENVS = {"prod", "production"}
 
@@ -57,7 +67,16 @@ def _require_courier(user: User) -> None:
         raise HTTPException(status_code=403, detail="Courier role required")
 
 
-def _coordinate_quote(payload: QuoteRequest) -> QuoteResult:
+def pilot_conditions() -> dict[str, object]:
+    """Server-controlled pricing conditions; client values are ignored."""
+    return {
+        "weather": settings.CL_PILOT_WEATHER.strip().lower(),
+        "traffic": settings.CL_PILOT_TRAFFIC.strip().lower(),
+        "surge": float(settings.CL_PILOT_SURGE),
+    }
+
+
+def _coordinate_quote(payload: QuoteRequest, conditions: dict[str, object]) -> QuoteResult:
     return estimate_quote(
         pickup=(payload.pickup_lat, payload.pickup_lng),
         dropoff=(payload.dropoff_lat, payload.dropoff_lng),
@@ -68,13 +87,15 @@ def _coordinate_quote(payload: QuoteRequest) -> QuoteResult:
         length_in=payload.length_in,
         width_in=payload.width_in,
         height_in=payload.height_in,
-        weather=payload.weather,
-        traffic=payload.traffic,
-        surge=payload.surge,
+        weather=conditions["weather"],
+        traffic=conditions["traffic"],
+        surge=conditions["surge"],
     )
 
 
-async def _address_quote(payload: AddressQuoteRequest) -> QuoteResult:
+async def _address_quote(
+    payload: AddressQuoteRequest, conditions: dict[str, object]
+) -> QuoteResult:
     if settings.CL_APP_ENV.strip().lower() in PRODUCTION_ENVS:
         try:
             route = await google_route_distance(
@@ -106,9 +127,9 @@ async def _address_quote(payload: AddressQuoteRequest) -> QuoteResult:
         length_in=payload.length_in,
         width_in=payload.width_in,
         height_in=payload.height_in,
-        weather=payload.weather,
-        traffic=payload.traffic,
-        surge=payload.surge,
+        weather=conditions["weather"],
+        traffic=conditions["traffic"],
+        surge=conditions["surge"],
     )
 
 
@@ -152,7 +173,126 @@ def _pricing_snapshot(
     }
 
 
-def _quote_response(result: QuoteResult) -> QuoteResponse:
+# ---------------------------------------------------------------------------
+# Quote binding and idempotency helpers
+# ---------------------------------------------------------------------------
+
+IDEMPOTENCY_KEY_PATTERN = re.compile(r"^[\x21-\x7e]{8,128}$")
+
+
+def _hash(value: object) -> str:
+    encoded = json.dumps(value, sort_keys=True, separators=(",", ":"), default=str)
+    return hashlib.sha256(encoded.encode("utf-8")).hexdigest()
+
+
+def _address_details(payload: AddressQuoteRequest) -> dict[str, object]:
+    return {
+        "kind": "address",
+        "origin": payload.origin.strip(),
+        "destination": payload.destination.strip(),
+        "vehicle": payload.vehicle,
+        "item_type": payload.item_type.strip().lower(),
+        "quantity": int(payload.quantity),
+        "weight_kg": float(payload.weight_kg),
+        "length_in": float(payload.length_in),
+        "width_in": float(payload.width_in),
+        "height_in": float(payload.height_in),
+        "delivery_requirements": list(payload.delivery_requirements),
+    }
+
+
+def _coordinate_details(payload: QuoteRequest) -> dict[str, object]:
+    return {
+        "kind": "coordinate",
+        "pickup_lat": float(payload.pickup_lat),
+        "pickup_lng": float(payload.pickup_lng),
+        "dropoff_lat": float(payload.dropoff_lat),
+        "dropoff_lng": float(payload.dropoff_lng),
+        "vehicle": payload.vehicle,
+        "item_type": payload.item_type.strip().lower(),
+        "quantity": int(payload.quantity),
+        "weight_lb": float(payload.weight_lb),
+        "length_in": float(payload.length_in),
+        "width_in": float(payload.width_in),
+        "height_in": float(payload.height_in),
+        "delivery_requirements": list(payload.delivery_requirements),
+    }
+
+
+def _as_utc(value: datetime) -> datetime:
+    # SQLite returns naive datetimes; values are always written in UTC.
+    return value if value.tzinfo is not None else value.replace(tzinfo=timezone.utc)
+
+
+def _optional_creator(
+    token: str | None = Depends(optional_oauth2_scheme),
+    db: Session = Depends(get_db),
+) -> User | None:
+    if not token:
+        return None
+    user = get_current_user(token=token, db=db)
+    return user if user.role in CREATOR_ROLES else None
+
+
+def _store_quote(
+    db: Session,
+    *,
+    user: User,
+    kind: str,
+    details: dict[str, object],
+    result: QuoteResult,
+    conditions: dict[str, object],
+    weight_lb: float,
+    payload: QuoteRequest | AddressQuoteRequest,
+) -> Quote:
+    now = datetime.now(timezone.utc)
+    quote = Quote(
+        id=f"q_{secrets.token_hex(16)}",
+        user_id=user.id,
+        kind=kind,
+        details_hash=_hash(details),
+        pricing_conditions=dict(conditions),
+        pricing_snapshot=_pricing_snapshot(
+            result,
+            item_type=payload.item_type,
+            quantity=payload.quantity,
+            weight_lb=weight_lb,
+            length_in=payload.length_in,
+            width_in=payload.width_in,
+            height_in=payload.height_in,
+            weather=str(conditions["weather"]),
+            traffic=str(conditions["traffic"]),
+            surge=float(conditions["surge"]),
+        ),
+        price_total=result.price_total,
+        eta_min=result.eta_min,
+        distance_miles=result.miles,
+        distance_estimated=result.estimated,
+        distance_source=result.distance_source,
+        tier=result.tier,
+        pricing_engine_version=PRICING_ENGINE_VERSION,
+        created_at=now,
+        expires_at=now + timedelta(seconds=settings.CL_QUOTE_TTL_SECONDS),
+    )
+    db.add(quote)
+    db.commit()
+    return quote
+
+
+def _quote_binding_fields(quote: Quote | None) -> dict[str, object]:
+    if quote is None:
+        return {}
+    expires_at = _as_utc(quote.expires_at)
+    remaining = int((expires_at - datetime.now(timezone.utc)).total_seconds())
+    return {
+        "quote_id": quote.id,
+        "expires_at": expires_at,
+        "expires_in_seconds": max(0, remaining),
+        "pricing_conditions": quote.pricing_conditions,
+    }
+
+
+def _quote_response(result: QuoteResult, quote: Quote | None = None) -> QuoteResponse:
     return QuoteResponse(
         price=result.price_total,
         eta=result.eta_min,
@@ -160,10 +300,11 @@ def _quote_response(result: QuoteResult) -> QuoteResponse:
         tier=result.tier,
         estimated=result.estimated,
         distance_source=result.distance_source,
+        **_quote_binding_fields(quote),
     )
 
 
-def _estimate_response(result: QuoteResult) -> QuoteEstimateResponse:
+def _estimate_response(result: QuoteResult, quote: Quote | None = None) -> QuoteEstimateResponse:
     return QuoteEstimateResponse(
         price_total=result.price_total,
         eta_min=result.eta_min,
@@ -171,6 +312,7 @@ def _estimate_response(result: QuoteResult) -> QuoteEstimateResponse:
         tier=result.tier,
         estimated=result.estimated,
         distance_source=result.distance_source,
+        **_quote_binding_fields(quote),
     )
 
 
@@ -195,131 +337,236 @@ def _redacted_available_order(order: Order) -> OrderOut:
     )
 
 
-@router.post("/quote", response_model=QuoteResponse)
-def quote_price(payload: QuoteRequest) -> QuoteResponse:
-    return _quote_response(_coordinate_quote(payload))
-
-
-@router.post("/quote/estimate", response_model=QuoteEstimateResponse)
-async def quote_estimate(payload: AddressQuoteRequest) -> QuoteEstimateResponse:
-    return _estimate_response(await _address_quote(payload))
+@router.post("/quote", response_model=QuoteResponse, response_model_exclude_none=True)
+def quote_price(
+    payload: QuoteRequest,
+    db: Session = Depends(get_db),
+    creator: User | None = Depends(_optional_creator),
+) -> QuoteResponse:
+    conditions = pilot_conditions()
+    result = _coordinate_quote(payload, conditions)
+    quote = None
+    if creator is not None:
+        quote = _store_quote(
+            db,
+            user=creator,
+            kind="coordinate",
+            details=_coordinate_details(payload),
+            result=result,
+            conditions=conditions,
+            weight_lb=payload.weight_lb,
+            payload=payload,
+        )
+    return _quote_response(result, quote)
 
 
 @router.post(
+    "/quote/estimate",
+    response_model=QuoteEstimateResponse,
+    response_model_exclude_none=True,
+)
+async def quote_estimate(
+    payload: AddressQuoteRequest,
+    db: Session = Depends(get_db),
+    creator: User | None = Depends(_optional_creator),
+) -> QuoteEstimateResponse:
+    conditions = pilot_conditions()
+    result = await _address_quote(payload, conditions)
+    quote = None
+    if creator is not None:
+        quote = _store_quote(
+            db,
+            user=creator,
+            kind="address",
+            details=_address_details(payload),
+            result=result,
+            conditions=conditions,
+            weight_lb=payload.weight_kg * 2.2046226218,
+            payload=payload,
+        )
+    return _estimate_response(result, quote)
+
+
+def _idempotency_key(request: Request) -> str:
+    key = request.headers.get("Idempotency-Key")
+    if key is None or not IDEMPOTENCY_KEY_PATTERN.fullmatch(key):
+        raise api_error(
+            400,
+            "idempotency_key_required",
+            "An Idempotency-Key header of 8-128 visible ASCII characters is required.",
+        )
+    return key
+
+
+def _order_for_key(db: Session, user_id: int, key: str) -> Order | None:
+    return (
+        db.query(Order)
+        .filter(Order.user_id == user_id, Order.idempotency_key == key)
+        .one_or_none()
+    )
+
+
+def _replay_or_conflict(order: Order, request_hash: str, response: Response) -> Order:
+    if order.request_hash != request_hash:
+        raise api_error(
+            409,
+            "idempotency_key_reused",
+            "This Idempotency-Key was already used for a different request.",
+        )
+    response.status_code = status.HTTP_200_OK
+    return order
+
+
+def _quote_already_used(order_id: int) -> HTTPException:
+    return api_error(
+        409,
+        "quote_already_used",
+        "An order was already created from this quote.",
+        order_id=order_id,
+    )
+
+
+async def _create_from_quote(
+    *,
+    kind: str,
+    payload: OrderCreate | OrderCreateCompat,
+    details: dict[str, object],
+    location: dict[str, object],
+    request: Request,
+    response: Response,
+    db: Session,
+    current_user: User,
+) -> Order:
+    if current_user.role not in CREATOR_ROLES:
+        raise api_error(403, "forbidden", "Only customers and merchants may create deliveries")
+    key = _idempotency_key(request)
+    request_hash = _hash({"quote_id": payload.quote_id, "details": details})
+
+    # 1. Idempotent replay is resolved before any quote validation so a retry
+    #    after quote expiry still returns the original order.
+    existing = _order_for_key(db, current_user.id, key)
+    if existing is not None:
+        return _replay_or_conflict(existing, request_hash, response)
+
+    # 2. Quote validation.
+    if not payload.quote_id:
+        raise api_error(422, "quote_required", "A quote_id from a current quote is required.",
+                        fields=[{"loc": ["body", "quote_id"], "message": "Field required",
+                                 "type": "missing"}])
+    quote = db.get(Quote, payload.quote_id)
+    if quote is None or quote.user_id != current_user.id:
+        raise api_error(404, "quote_not_found", "Quote not found.")
+    if quote.kind != kind or quote.details_hash != _hash(details):
+        raise api_error(
+            409,
+            "quote_details_mismatch",
+            "Delivery details changed since this quote. Request a new quote.",
+        )
+    used_by = db.query(Order.id).filter(Order.quote_id == quote.id).scalar()
+    if used_by is not None:
+        raise _quote_already_used(used_by)
+    if _as_utc(quote.expires_at) <= datetime.now(timezone.utc):
+        raise api_error(409, "quote_expired", "This quote has expired. Request a new quote.")
+
+    conditions = quote.pricing_conditions
+    order = Order(
+        user_id=current_user.id,
+        **location,
+        vehicle=str(details["vehicle"]),
+        item_type=str(details["item_type"]),
+        delivery_requirements=list(details["delivery_requirements"]),
+        quantity=int(details["quantity"]),
+        weight_lb=float(quote.pricing_snapshot["inputs"]["weight_lb"]),
+        length_in=float(details["length_in"]),
+        width_in=float(details["width_in"]),
+        height_in=float(details["height_in"]),
+        price=quote.price_total,
+        eta_min=quote.eta_min,
+        distance_miles=quote.distance_miles,
+        distance_estimated=quote.distance_estimated,
+        distance_source=quote.distance_source,
+        weather=str(conditions["weather"]),
+        traffic=str(conditions["traffic"]),
+        surge_multiplier=float(conditions["surge"]),
+        pricing_engine_version=quote.pricing_engine_version,
+        pricing_snapshot=dict(quote.pricing_snapshot),
+        quote_id=quote.id,
+        idempotency_key=key,
+        request_hash=request_hash,
+        status=OrderStatus.pending,
+    )
+    db.add(order)
+    try:
+        db.commit()
+    except IntegrityError:
+        # A concurrent request won the unique constraint race. Re-resolve
+        # against committed state instead of creating a second order.
+        db.rollback()
+        existing = _order_for_key(db, current_user.id, key)
+        if existing is not None:
+            return _replay_or_conflict(existing, request_hash, response)
+        used_by = db.query(Order.id).filter(Order.quote_id == quote.id).scalar()
+        if used_by is not None:
+            raise _quote_already_used(used_by)
+        raise
+    db.refresh(order)
+    await tracking_service.publish(
+        make_order_event(OrderEventType.created, order.id, **_tracking_data(order))
+    )
+    return order
+
+
+@create_router.post(
     "/orders",
     response_model=OrderOut,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_order(
     payload: OrderCreate,
+    request: Request,
+    response: Response,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Order:
-    _require_order_creator(current_user)
-    quote = _coordinate_quote(payload)
-    pricing_snapshot = _pricing_snapshot(
-        quote,
-        item_type=payload.item_type,
-        quantity=payload.quantity,
-        weight_lb=payload.weight_lb,
-        length_in=payload.length_in,
-        width_in=payload.width_in,
-        height_in=payload.height_in,
-        weather=payload.weather,
-        traffic=payload.traffic,
-        surge=payload.surge,
+    return await _create_from_quote(
+        kind="coordinate",
+        payload=payload,
+        details=_coordinate_details(payload),
+        location={
+            "pickup_lat": payload.pickup_lat,
+            "pickup_lng": payload.pickup_lng,
+            "dropoff_lat": payload.dropoff_lat,
+            "dropoff_lng": payload.dropoff_lng,
+        },
+        request=request,
+        response=response,
+        db=db,
+        current_user=current_user,
     )
-    order = Order(
-        user_id=current_user.id,
-        pickup_lat=payload.pickup_lat,
-        pickup_lng=payload.pickup_lng,
-        dropoff_lat=payload.dropoff_lat,
-        dropoff_lng=payload.dropoff_lng,
-        vehicle=quote.transportation_mode,
-        item_type=payload.item_type.strip().lower(),
-        delivery_requirements=payload.delivery_requirements,
-        quantity=payload.quantity,
-        weight_lb=payload.weight_lb,
-        length_in=payload.length_in,
-        width_in=payload.width_in,
-        height_in=payload.height_in,
-        price=quote.price_total,
-        eta_min=quote.eta_min,
-        distance_miles=quote.miles,
-        distance_estimated=quote.estimated,
-        distance_source=quote.distance_source,
-        weather=payload.weather,
-        traffic=payload.traffic,
-        surge_multiplier=payload.surge,
-        pricing_engine_version=PRICING_ENGINE_VERSION,
-        pricing_snapshot=pricing_snapshot,
-        status=OrderStatus.pending,
-    )
-    db.add(order)
-    db.commit()
-    db.refresh(order)
-    await tracking_service.publish(
-        make_order_event(OrderEventType.created, order.id, **_tracking_data(order))
-    )
-    return order
 
 
-@router.post(
+@create_router.post(
     "/orders/create_compat",
     response_model=OrderOut,
     status_code=status.HTTP_201_CREATED,
 )
 async def create_order_compat(
     payload: OrderCreateCompat,
+    request: Request,
+    response: Response,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ) -> Order:
-    _require_order_creator(current_user)
-    quote = await _address_quote(payload)
-    weight_lb = payload.weight_kg * 2.2046226218
-    pricing_snapshot = _pricing_snapshot(
-        quote,
-        item_type=payload.item_type,
-        quantity=payload.quantity,
-        weight_lb=weight_lb,
-        length_in=payload.length_in,
-        width_in=payload.width_in,
-        height_in=payload.height_in,
-        weather=payload.weather,
-        traffic=payload.traffic,
-        surge=payload.surge,
+    return await _create_from_quote(
+        kind="address",
+        payload=payload,
+        details=_address_details(payload),
+        location={"origin": payload.origin, "destination": payload.destination},
+        request=request,
+        response=response,
+        db=db,
+        current_user=current_user,
     )
-    order = Order(
-        user_id=current_user.id,
-        origin=payload.origin,
-        destination=payload.destination,
-        vehicle=quote.transportation_mode,
-        item_type=payload.item_type.strip().lower(),
-        delivery_requirements=payload.delivery_requirements,
-        quantity=payload.quantity,
-        weight_lb=weight_lb,
-        length_in=payload.length_in,
-        width_in=payload.width_in,
-        height_in=payload.height_in,
-        price=quote.price_total,
-        eta_min=quote.eta_min,
-        distance_miles=quote.miles,
-        distance_estimated=quote.estimated,
-        distance_source=quote.distance_source,
-        weather=payload.weather,
-        traffic=payload.traffic,
-        surge_multiplier=payload.surge,
-        pricing_engine_version=PRICING_ENGINE_VERSION,
-        pricing_snapshot=pricing_snapshot,
-        status=OrderStatus.pending,
-    )
-    db.add(order)
-    db.commit()
-    db.refresh(order)
-    await tracking_service.publish(
-        make_order_event(OrderEventType.created, order.id, **_tracking_data(order))
-    )
-    return order
 
 
 @router.get("/orders/mine", response_model=list[OrderOut])

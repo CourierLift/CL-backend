@@ -1,0 +1,17 @@
+HTTP/2 200 
+date: Mon, 12 Oct 2026 20:57:37 GMT
+content-type: text/plain; charset=utf-8
+access-control-allow-credentials: true
+access-control-allow-headers: authorization,content-type,idempotency-key
+access-control-allow-methods: DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT
+access-control-allow-origin: https://courierlifts-web.onrender.com
+access-control-max-age: 600
+rndr-id: 3de9b655-b8a1-4b34
+server: cloudflare
+vary: Origin
+vary: Accept-Encoding
+x-render-origin-server: uvicorn
+cf-cache-status: DYNAMIC
+cf-ray: a49904976e2cec1f-SEA
+alt-svc: h3=":443"; ma=86400
+

@@ -1,3 +1,4 @@
+from tests.order_helpers import quoted_create  # COMPAT: quote-bound creation
 import pytest
 
 from backend.quote_engine import estimate_quote
@@ -16,7 +17,7 @@ def create_delivery(client, headers, **overrides):
         "height_in": 6,
     }
     payload.update(overrides)
-    return client.post("/orders/create_compat", json=payload, headers=headers)
+    return quoted_create(client, "/orders/create_compat", json=payload, headers=headers)
 
 
 def test_address_quote_generation_is_explicitly_estimated(client):
