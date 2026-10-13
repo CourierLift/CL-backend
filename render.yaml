@@ -22,6 +22,9 @@ services:
         value: "1"
       - key: CL_APP_ENV
         value: production
+      # Local template change only; applying live settings needs approval.
+      - key: CL_REGISTRATION_MODE
+        value: manual-invite
       - key: CL_DATABASE_URL
         fromDatabase:
           name: courierlifts-db

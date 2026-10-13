@@ -24,6 +24,10 @@ Do not introduce microservices for launch readiness.
 
 ## Local setup
 
+Registration is manual-invite by default. See [INVITE_PILOT.md](INVITE_PILOT.md)
+for private provisioning of fictional local accounts; do not reopen registration
+or use production secrets/data for local tests.
+
 ```bash
 python3.11 -m venv .venv
 source .venv/bin/activate
@@ -78,6 +82,7 @@ Key production requirements:
 | Variable | Production requirement |
 | --- | --- |
 | `CL_APP_ENV` | `production` or `prod` |
+| `CL_REGISTRATION_MODE` | `manual-invite` (default closed; live changes need approval) |
 | `CL_SECRET_KEY` | New secret, at least 32 characters; development placeholders are rejected |
 | `CL_DATABASE_URL` | PostgreSQL URL |
 | `CL_FRONTEND_ORIGIN` | Final HTTPS frontend origin; localhost is rejected |

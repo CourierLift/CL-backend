@@ -2,6 +2,7 @@
 
 import os
 from pathlib import Path
+from typing import Literal
 from urllib.parse import urlparse
 
 from dotenv import load_dotenv
@@ -19,6 +20,10 @@ INSECURE_SECRET_KEYS = {
 
 
 class Settings(BaseModel):
+    CL_REGISTRATION_MODE: Literal["manual-invite", "public"] = Field(
+        default_factory=lambda: os.getenv("CL_REGISTRATION_MODE", "manual-invite"),
+        validate_default=True,
+    )
     CL_APP_ENV: str = Field(
         default_factory=lambda: os.getenv("CL_APP_ENV", "development")
     )
