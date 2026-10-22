@@ -20,6 +20,10 @@ INSECURE_SECRET_KEYS = {
 
 
 class Settings(BaseModel):
+    # Explicit unpaid release mode. No payment integration or live provider use.
+    CL_UNPAID_PILOT: bool = Field(
+        default_factory=lambda: os.getenv("CL_UNPAID_PILOT", "false").lower() == "true"
+    )
     CL_REGISTRATION_MODE: Literal["manual-invite", "public"] = Field(
         default_factory=lambda: os.getenv("CL_REGISTRATION_MODE", "manual-invite"),
         validate_default=True,
@@ -133,6 +137,8 @@ class Settings(BaseModel):
 
     @model_validator(mode="after")
     def validate_runtime_posture(self) -> "Settings":
+        if self.CL_UNPAID_PILOT and self.CL_REGISTRATION_MODE != "manual-invite":
+            raise ValueError("Unpaid pilot requires manual-invite registration")
         backend = self.CL_OBJECT_STORAGE_BACKEND.strip().lower()
         if backend not in {"local", "s3"}:
             raise ValueError("CL_OBJECT_STORAGE_BACKEND must be 'local' or 's3'")
@@ -149,7 +155,7 @@ class Settings(BaseModel):
             raise ValueError("Production CL_DATABASE_URL must use PostgreSQL")
         if backend != "s3" or not (self.CL_S3_BUCKET or "").strip():
             raise ValueError("Production proof storage requires S3-compatible object storage")
-        if not (self.CL_GOOGLE_MAPS_API_KEY or "").strip():
+        if not self.CL_UNPAID_PILOT and not (self.CL_GOOGLE_MAPS_API_KEY or "").strip():
             raise ValueError("Production address pricing requires CL_GOOGLE_MAPS_API_KEY")
 
         origin = self.CL_FRONTEND_ORIGIN.strip().rstrip("/")

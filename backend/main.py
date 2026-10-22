@@ -59,11 +59,29 @@ def health() -> dict[str, object]:
     return {"ok": True, "env": settings.CL_APP_ENV}
 
 
+@app.get("/pilot-info")
+def pilot_info() -> dict[str, object]:
+    return {
+        "unpaid": settings.CL_UNPAID_PILOT,
+        "registration": settings.CL_REGISTRATION_MODE,
+        "payments_enabled": False,
+        "payouts_enabled": False,
+        "location_sharing_enabled": False,
+        "quote_binding": True,
+        "proof_retrieval": True,
+    }
+
+
 @app.get("/ready")
 def ready() -> dict[str, object]:
     try:
         with engine.connect() as connection:
             connection.execute(text("SELECT 1"))
+            if settings.CL_APP_ENV.strip().lower() in PRODUCTION_ENVS:
+                revision = connection.execute(text("SELECT version_num FROM alembic_version")).scalar()
+                if revision != "0005_quotes_idempotency":
+                    raise HTTPException(status_code=503, detail="database migration is not ready")
+                connection.execute(text("SELECT quote_id, idempotency_key, request_hash FROM orders LIMIT 0"))
     except SQLAlchemyError as exc:
         raise HTTPException(status_code=503, detail="database unavailable") from exc
     return {"ok": True, "database": "reachable"}

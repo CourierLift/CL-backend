@@ -77,6 +77,7 @@ def pilot_conditions() -> dict[str, object]:
 
 
 def _coordinate_quote(payload: QuoteRequest, conditions: dict[str, object]) -> QuoteResult:
+    _pilot_vehicle(payload.vehicle)
     return estimate_quote(
         pickup=(payload.pickup_lat, payload.pickup_lng),
         dropoff=(payload.dropoff_lat, payload.dropoff_lng),
@@ -96,7 +97,8 @@ def _coordinate_quote(payload: QuoteRequest, conditions: dict[str, object]) -> Q
 async def _address_quote(
     payload: AddressQuoteRequest, conditions: dict[str, object]
 ) -> QuoteResult:
-    if settings.CL_APP_ENV.strip().lower() in PRODUCTION_ENVS:
+    _pilot_vehicle(payload.vehicle)
+    if settings.CL_APP_ENV.strip().lower() in PRODUCTION_ENVS and not settings.CL_UNPAID_PILOT:
         try:
             route = await google_route_distance(
                 origin=payload.origin,
@@ -118,7 +120,7 @@ async def _address_quote(
             "development_fallback_miles": settings.CL_DEVELOPMENT_FALLBACK_MILES,
         }
 
-    return estimate_quote(
+    result = estimate_quote(
         **distance_kwargs,
         transportation_mode=payload.vehicle,
         item_type=payload.item_type,
@@ -131,6 +133,17 @@ async def _address_quote(
         traffic=conditions["traffic"],
         surge=conditions["surge"],
     )
+    if settings.CL_UNPAID_PILOT:
+        # Fixed server-side sample mileage, NOT a measured route or arrival time.
+        # This figure exercises the quote contract; no money is collected.
+        from dataclasses import replace
+        result = replace(result, distance_source="unpaid_pilot_sample", estimated=True)
+    return result
+
+
+def _pilot_vehicle(vehicle: str) -> None:
+    if settings.CL_UNPAID_PILOT and vehicle not in {"car", "suv", "light_truck"}:
+        raise api_error(422, "pilot_vehicle_unavailable", "Pilot vehicles are car, SUV or truck; actual fit requires operator confirmation.")
 
 
 def _pricing_snapshot(

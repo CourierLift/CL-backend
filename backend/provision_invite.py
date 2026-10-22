@@ -49,6 +49,15 @@ def main(argv=None) -> int:
             return 2
         from .database import SessionLocal
         from .services.account_provisioning import provision_account
+        if settings.CL_UNPAID_PILOT and args.role == "courier" and (
+            args.transportation_mode not in {"car", "suv", "light_truck"}
+            or any(value is None for value in (
+                args.max_weight_lb, args.max_length_in, args.max_width_in,
+                args.max_height_in, args.max_volume_cu_ft,
+            ))
+        ):
+            print("Pilot courier provisioning requires car/suv/light_truck and all five measured capacity limits. Do not assume vehicle capacity.", file=sys.stderr)
+            return 2
         payload = RegisterIn(
             email=args.email, password=password, role=args.role,
             transportation_mode=args.transportation_mode,

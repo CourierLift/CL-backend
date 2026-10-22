@@ -3,7 +3,7 @@
 from hashlib import sha256
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -21,6 +21,39 @@ ALLOWED_PROOF_CONTENT_TYPES = {
     "image/png": ".png",
     "image/webp": ".webp",
 }
+
+
+@router.get("/orders/{order_id}/proof")
+def view_delivery_proof(
+    order_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+    storage: ObjectStorage = Depends(get_object_storage),
+) -> Response:
+    # Authenticate and authorize before consulting storage. Never expose a public
+    # bucket URL or put the bearer token in a photo URL.
+    order = db.get(Order, order_id)
+    if order is None:
+        raise HTTPException(status_code=404, detail="Order not found")
+    if not (order.user_id == current_user.id
+            or order.assigned_courier_id == current_user.id
+            or current_user.role == UserRole.admin):
+        raise HTTPException(status_code=403, detail="Not authorized to view this order")
+    proof = order.proof
+    if proof is None:
+        raise HTTPException(status_code=404, detail="Delivery proof is not recorded")
+    if proof.content_type not in ALLOWED_PROOF_CONTENT_TYPES:
+        raise HTTPException(status_code=503, detail="Delivery proof is unavailable")
+    try:
+        data = storage.read(proof.storage_key, settings.CL_PROOF_MAX_BYTES)
+    except Exception as exc:
+        raise HTTPException(status_code=503, detail="Delivery proof is unavailable") from exc
+    if len(data) != proof.size_bytes or sha256(data).hexdigest() != proof.sha256:
+        raise HTTPException(status_code=503, detail="Delivery proof integrity check failed")
+    return Response(content=data, media_type=proof.content_type, headers={
+        "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": 'inline; filename="delivery-proof' + ALLOWED_PROOF_CONTENT_TYPES[proof.content_type] + '"',
+    })
 
 
 @router.post(
