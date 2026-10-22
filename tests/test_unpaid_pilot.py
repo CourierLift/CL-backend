@@ -93,8 +93,14 @@ def test_s3_read_uses_private_bucket_and_closes_stream():
 
 def test_production_readiness_rejects_unmigrated_database(client, monkeypatch):
     from backend.database import engine
-    from sqlalchemy import text
+    from sqlalchemy import inspect, text
     monkeypatch.setattr(settings, "CL_APP_ENV", "production")
+    # CI applies Alembic before pytest, while an empty local fixture has no
+    # revision table. Exercise both states explicitly and restore CI metadata.
+    had_version_table = inspect(engine).has_table("alembic_version")
+    with engine.begin() as connection:
+        versions = list(connection.execute(text("SELECT version_num FROM alembic_version")).scalars()) if had_version_table else []
+        connection.execute(text("DROP TABLE IF EXISTS alembic_version"))
     assert client.get("/ready").status_code == 503
     with engine.begin() as connection:
         connection.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(64))"))
@@ -107,3 +113,7 @@ def test_production_readiness_rejects_unmigrated_database(client, monkeypatch):
     finally:
         with engine.begin() as connection:
             connection.execute(text("DROP TABLE alembic_version"))
+            if had_version_table:
+                connection.execute(text("CREATE TABLE alembic_version (version_num VARCHAR(64))"))
+                for version in versions:
+                    connection.execute(text("INSERT INTO alembic_version VALUES (:version)"), {"version": version})
