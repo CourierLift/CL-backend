@@ -55,6 +55,13 @@ class Settings(BaseModel):
             "CL_FRONTEND_ORIGIN", "http://localhost:5173"
         )
     )
+    CL_ADDITIONAL_FRONTEND_ORIGINS: list[str] = Field(
+        default_factory=lambda: [
+            value.strip()
+            for value in os.getenv("CL_ADDITIONAL_FRONTEND_ORIGINS", "").split(",")
+            if value.strip()
+        ]
+    )
     CL_DEVELOPMENT_FALLBACK_MILES: float = Field(
         default_factory=lambda: float(
             os.getenv("CL_DEVELOPMENT_FALLBACK_MILES", "8.0")
@@ -158,16 +165,23 @@ class Settings(BaseModel):
         if not self.CL_UNPAID_PILOT and not (self.CL_GOOGLE_MAPS_API_KEY or "").strip():
             raise ValueError("Production address pricing requires CL_GOOGLE_MAPS_API_KEY")
 
-        origin = self.CL_FRONTEND_ORIGIN.strip().rstrip("/")
-        parsed = urlparse(origin)
-        hostname = (parsed.hostname or "").lower()
-        if parsed.scheme != "https" or not parsed.netloc:
-            raise ValueError("Production CL_FRONTEND_ORIGIN must be an HTTPS origin")
-        if hostname in {"localhost", "127.0.0.1", "::1"} or hostname.endswith(".localhost"):
-            raise ValueError("Production CL_FRONTEND_ORIGIN cannot use localhost")
-        if parsed.path or parsed.params or parsed.query or parsed.fragment:
-            raise ValueError("CL_FRONTEND_ORIGIN must contain only scheme, host, and optional port")
-        self.CL_FRONTEND_ORIGIN = origin
+        origins = []
+        for configured_origin in [self.CL_FRONTEND_ORIGIN, *self.CL_ADDITIONAL_FRONTEND_ORIGINS]:
+            origin = configured_origin.strip().rstrip("/")
+            parsed = urlparse(origin)
+            hostname = (parsed.hostname or "").lower()
+            if parsed.scheme != "https" or not parsed.netloc or not hostname or "*" in hostname:
+                raise ValueError("Production frontend origins must be explicit HTTPS origins")
+            if hostname in {"localhost", "127.0.0.1", "::1"} or hostname.endswith(".localhost"):
+                raise ValueError("Production frontend origins cannot use localhost")
+            if parsed.username or parsed.password or parsed.path or parsed.params or parsed.query or parsed.fragment:
+                raise ValueError("Frontend origins must contain only scheme, host, and optional port")
+            # Parsing the port also rejects malformed and out-of-range values.
+            _ = parsed.port
+            if origin not in origins:
+                origins.append(origin)
+        self.CL_FRONTEND_ORIGIN = origins[0]
+        self.CL_ADDITIONAL_FRONTEND_ORIGINS = origins[1:]
         return self
 
 

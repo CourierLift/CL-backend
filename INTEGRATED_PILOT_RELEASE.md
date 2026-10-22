@@ -1,5 +1,11 @@
 # Integrated invite-only unpaid Midland pilot — review candidate
 
+> Historical October 21 preparation record. Current migration, storage, recovery,
+> test results and combined approval are in [COMBINED_PILOT_APPROVAL.md](COMBINED_PILOT_APPROVAL.md),
+> [POSTGRES_CUTOVER.md](docs/POSTGRES_CUTOVER.md) and
+> [PILOT_PHOTO_STORAGE.md](docs/PILOT_PHOTO_STORAGE.md).
+> The current runbooks supersede the inspection status and rollback sequence below.
+
 Prepared October 21, 2026 America/Chicago (verification timestamps in evidence are UTC).
 Production replacement is NOT authorized. No hosted resources, credentials, access settings,
 production database, DNS or NavGlass resources were changed. No torn-down staging service

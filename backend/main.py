@@ -23,8 +23,10 @@ from .tracking import router as tracking_router
 PRODUCTION_ENVS = {"prod", "production"}
 
 
-def cors_origins(app_env: str, frontend_origin: str) -> list[str]:
-    origins = [frontend_origin]
+def cors_origins(
+    app_env: str, frontend_origin: str, additional_origins: list[str] | None = None
+) -> list[str]:
+    origins = [frontend_origin, *(additional_origins or [])]
     if app_env.strip().lower() not in PRODUCTION_ENVS:
         origins.append("http://localhost:5173")
     return list(dict.fromkeys(origins))
@@ -47,7 +49,11 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=cors_origins(settings.CL_APP_ENV, settings.CL_FRONTEND_ORIGIN),
+    allow_origins=cors_origins(
+        settings.CL_APP_ENV,
+        settings.CL_FRONTEND_ORIGIN,
+        settings.CL_ADDITIONAL_FRONTEND_ORIGINS,
+    ),
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

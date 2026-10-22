@@ -12,13 +12,15 @@ import sys
 from urllib.parse import urlparse
 
 url = urlparse(os.environ.get("CL_DATABASE_URL", ""))
-if url.hostname != "127.0.0.1" or not url.path.startswith("/pilot_"):
+if (url.scheme not in {"postgresql", "postgresql+psycopg"}
+    or url.hostname != "127.0.0.1" or not url.path.startswith("/pilot_")
+    or url.query or url.fragment or any(key.startswith("PG") for key in os.environ)):
     raise SystemExit("Requires an explicit loopback pilot_* database; refusing hosted data")
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from fastapi.testclient import TestClient
 from backend.main import app
 from backend.database import SessionLocal
-from backend.models import Order, Quote, DeliveryProof
+from backend.models import Order, Quote, DeliveryProof, User, CourierProfile, RewardEvent
 from backend.schemas import RegisterIn
 from backend.services.account_provisioning import provision_account
 
@@ -29,6 +31,9 @@ image = bytes.fromhex("89504e470d0a1a0a") + b"fictional-persistence-fixture"
 with TestClient(app) as client:
     if action == "seed":
         with SessionLocal() as db:
+            assert all(db.query(model).count() == 0 for model in (
+                User, CourierProfile, Quote, Order, DeliveryProof, RewardEvent,
+            )), "Seed requires an empty disposable database"
             for role in ("customer", "courier"):
                 provision_account(db, RegisterIn(
                     email=f"restore-{role}@example.com", password=password, role=role,

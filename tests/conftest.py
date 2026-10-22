@@ -3,6 +3,7 @@ import os
 
 import pytest
 from fastapi.testclient import TestClient
+from database_safety import validate_disposable_database_url
 
 
 os.environ["CL_APP_ENV"] = "test"
@@ -12,6 +13,10 @@ os.environ["CL_REGISTRATION_MODE"] = "public"
 os.environ["CL_SECRET_KEY"] = "test-only-secret-not-for-production"
 os.environ.setdefault("CL_DATABASE_URL", "sqlite:///:memory:")
 os.environ["CL_DEVELOPMENT_FALLBACK_MILES"] = "7.5"
+
+# Every fixture drops tables. Reject hosted databases and preserved SQLite files
+# before importing any application module or opening a connection.
+validate_disposable_database_url(os.environ["CL_DATABASE_URL"])
 
 from backend.database import Base, engine  # noqa: E402
 from backend.main import app  # noqa: E402
