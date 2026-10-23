@@ -1,0 +1,61 @@
+{
+  "verified_at_utc": "2026-10-23",
+  "scope": "Isolated synthetic tests; no hosted mutations",
+  "full_sqlite": {
+    "passed": 445,
+    "skipped": 19,
+    "duration_seconds": 101.09,
+    "log": "continuation-full-sqlite-20261023.txt"
+  },
+  "full_postgresql": {
+    "passed": 464,
+    "skipped": 0,
+    "duration_seconds": 145.32,
+    "log": "continuation-full-postgres-20261023.txt",
+    "version": "16.15",
+    "host": "127.0.0.1",
+    "database": "pilot_release_final_tests"
+  },
+  "subset_results_not_additive": {
+    "backup": 60,
+    "startup_recovery": 33,
+    "actual_legacy_runtime": 2
+  },
+  "yaml_schema_validation": {
+    "files": [
+      "render.yaml",
+      "ops/pilot-recovery/render-backups.review.yaml"
+    ],
+    "passed": true,
+    "schema_id": "https://render.com/schema/render.yaml.json",
+    "schema_sha256": "8a3fb8da6b4f55fe686fbefa790e011d3dd7895f013f355953c572a21ab6494a"
+  },
+  "legacy_runtime_build": {
+    "old_commit": "7580a9ca95f0d0795b6362e0b638181359f1b3c5",
+    "python": "3.13.4",
+    "locked_packages": 54,
+    "local_install_method": "checksum-pinned standalone interpreter and age; uv installs identical observed package lock; actual Render pip build is a distinct CI gate"
+  },
+  "warning": "Upstream Starlette/AnyIO deprecation only",
+  "file_sha256": {
+    "scripts/prepare_release_runtime.py": "9bd4e0dfa1c42e9542958224b60dbdacd2c992eb1565cc862c12e77bdf46c918",
+    "scripts/recovery_artifacts.py": "3f627b563754e07e4bca4d4cd6385b0b7b3fee75d13257e8c71702d86977b106",
+    "scripts/recovery_inputs.py": "9cda703ddbe03c4cae64fc473aa1d270773aa8b32e0222b42d89a41fd53d66be",
+    "scripts/restore_durable_checkpoint.py": "b869c6444c265d3048053eedbfe4c6dcf17e5cbeab1b2fc2b53e10ca2d1dc50e",
+    "scripts/run_recovery_job.py": "961fbd760fe4638d6deb17491794d5304245f9339bca20fff7fac062ca4c5ad3",
+    "scripts/seal_legacy_recovery.py": "4683994569801acf1e3f855bbdaa71d84b96a165b761852645dab35725c2fb7b",
+    "scripts/start_pilot.py": "2dca3c64242423997bb6d4f90c18ac41daefc4470ef61aaf5d8080884a3735cd",
+    "tests/test_release_bootstrap.py": "93b93d6cce0d6630ffa98e77464638e6712f58d6e1e35415c13dd8078ee128d0",
+    "tests/test_legacy_runtime_native.py": "cfc08ea38190243e629a356548dfb3eb2b2cde8eefd559dea8dfecd57df81b31",
+    "ops/pilot-backup/pilot_backup.py": "b442df10c0043637c12f808b001ccf69769956762c8d00f1ff4d8e0ea16b3b11",
+    "ops/pilot-recovery/Dockerfile": "b0908a9fa68bad6e674a3c196d94d639c3c0c34d99bacf06c576ef23014f5d64",
+    "ops/pilot-recovery/cron_entry.py": "cf691e4e70daba770eb5b45b193422838f3cbc6eab6387bcc42113a4f3aa900c",
+    "ops/pilot-recovery/runtime_entry.py": "ab24bf428ea3e818d2326f31a5528b0c1fd4cefad8e473e6363e204c5af25cf4",
+    ".github/workflows/backend-ci.yml": "e2a16865979a4a68999fee8825116451d0b29de91f49d1f9013627c2bb4430ed",
+    "render.yaml": "a2a75d91d0fd1a2741ae4386a977c34a6abb0b7f6ffce8cee9fc8bf7e1ffccb2",
+    "ops/pilot-recovery/render-backups.review.yaml": "923893d687cf0e05f76b19ee884020e05eb1137deb967a9e617ee802139465b3"
+  },
+  "production_changed": false,
+  "hosted_storage_or_automation_verified": false,
+  "physical_iphone_verified": false
+}

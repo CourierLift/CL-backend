@@ -1,39 +1,55 @@
-# Approved production pilot configuration. Supply real Google/S3 credentials
-# before applying. Link the existing CL-backend service and courierlifts-db.
-# A repository commit alone does not change Render or provision resources.
+# REVIEW TEMPLATE ONLY: existing-service settings for the unpaid pilot.
+# Do not apply this as a new Blueprint or create/replace services/databases.
+# After explicit release approval, apply reviewed settings to srv-d2tbhgmuk2gs73cneer0
+# and deploy an exact compatible candidate SHA. Never configure old main with PG.
+# See docs/POSTGRES_CUTOVER.md for the stopped-writer backup/import sequence.
 services:
   - type: web
     runtime: python
     name: CL-backend
     repo: https://github.com/CourierLift/CL-backend
-    branch: main
+    branch: work/integrated-unpaid-pilot-20261021
     region: oregon
     plan: 0.5c-512mb
     numInstances: 1
-    autoDeployTrigger: checksPass
-    buildCommand: pip install -r requirements.txt
-    preDeployCommand: alembic upgrade head
-    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1
+    autoDeployTrigger: "off"
+    buildCommand: pip install -r requirements.txt && python scripts/prepare_release_runtime.py
+    # Migration/import is a separate approved stopped-writer operation. A web
+    # deployment, especially recovery, must never automatically change a DB.
+    preDeployCommand: ""
+    startCommand: python scripts/start_pilot.py
     healthCheckPath: /ready
     envVars:
       - key: PYTHON_VERSION
-        value: "3.11.15"
+        value: "3.11.17"
       - key: WEB_CONCURRENCY
         value: "1"
+      - key: CL_RELEASE_SHA
+        # Exact reviewed candidate commit, matched to RENDER_GIT_COMMIT at start.
+        sync: false
       - key: CL_APP_ENV
         value: production
+      # Local template change only; applying live settings needs approval.
+      - key: CL_REGISTRATION_MODE
+        value: manual-invite
+      - key: CL_UNPAID_PILOT
+        value: "true"
       - key: CL_DATABASE_URL
-        fromDatabase:
-          name: courierlifts-db
-          property: connectionString
-      - key: CL_SECRET_KEY
-        generateValue: true
-      - key: CL_FRONTEND_ORIGIN
-        value: https://courierlifts-web.onrender.com
-      - key: CL_GOOGLE_MAPS_API_KEY
+        # Existing internal PG URL, configured securely only after approved migration/import.
+        # No fromDatabase/databases block: this template does not authorize provisioning.
         sync: false
+      - key: CL_SECRET_KEY
+        # Explicit approved production rotation only, after encrypted preservation
+        # of the original environment; no implicit Blueprint secret generation.
+        sync: false
+      - key: CL_FRONTEND_ORIGIN
+        value: https://courierlifts.com
+      - key: CL_ADDITIONAL_FRONTEND_ORIGINS
+        value: https://courierlifts-web.onrender.com
       - key: CL_OBJECT_STORAGE_BACKEND
         value: s3
+      - key: CL_PROOF_MAX_BYTES
+        value: "10485760"
       - key: CL_S3_BUCKET
         sync: false
       - key: CL_S3_REGION
@@ -42,14 +58,3 @@ services:
         sync: false
       - key: AWS_SECRET_ACCESS_KEY
         sync: false
-
-databases:
-  - name: courierlifts-db
-    databaseName: courierlifts_db
-    user: courierlifts_db_user
-    region: oregon
-    plan: 0.1c-256mb
-    postgresMajorVersion: "16"
-    diskSizeGB: 1
-    storageAutoscalingEnabled: false
-    ipAllowList: []

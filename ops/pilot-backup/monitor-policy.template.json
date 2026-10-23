@@ -1,0 +1,8 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {"Sid": "CheckApprovedRegion", "Effect": "Allow", "Action": "s3:GetBucketLocation", "Resource": "arn:aws:s3:::__BACKUP_BUCKET__"},
+    {"Sid": "ListCheckpoints", "Effect": "Allow", "Action": "s3:ListBucket", "Resource": "arn:aws:s3:::__BACKUP_BUCKET__", "Condition": {"StringEquals": {"s3:prefix": "courierlifts-backups/v1/checkpoints/"}}},
+    {"Sid": "ReadCompletionMarkers", "Effect": "Allow", "Action": ["s3:GetObject", "s3:GetObjectVersion"], "Resource": "arn:aws:s3:::__BACKUP_BUCKET__/courierlifts-backups/v1/checkpoints/*/complete.json"}
+  ]
+}

@@ -1,0 +1,27 @@
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_initial_schema, Initial Courier Lifts relational schema.
+INFO  [alembic.runtime.migration] Running upgrade 0001_initial_schema -> 0002_add_in_transit_status, Add authoritative in-transit delivery state.
+INFO  [alembic.runtime.migration] Running upgrade 0002_add_in_transit_status -> 0003_delivery_proofs, Add durable delivery proof records.
+INFO  [alembic.runtime.migration] Running upgrade 0003_delivery_proofs -> 0004_pricing_snapshot, Persist immutable pricing snapshots on orders.
+INFO  [alembic.runtime.migration] Running upgrade 0004_pricing_snapshot -> 0005_quotes_idempotency, Server-issued quotes and idempotent order creation.
+{"action": "seed", "order_id": 1, "price": 20.27, "orders": 1, "quotes": 1, "proofs": 1, "photo_sha256": "2502827a89eac69872dccd9ed99aa37ea971d7f82fcfaf80586ff95e1c1fcb98", "fresh_login": "PASS", "same_key_replay": "PASS"}
+{"action": "verify", "order_id": 1, "price": 20.27, "orders": 1, "quotes": 1, "proofs": 1, "photo_sha256": "2502827a89eac69872dccd9ed99aa37ea971d7f82fcfaf80586ff95e1c1fcb98", "fresh_login": "PASS", "same_key_replay": "PASS"}
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+0005_quotes_idempotency (head)
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_initial_schema, Initial Courier Lifts relational schema.
+INFO  [alembic.runtime.migration] Running upgrade 0001_initial_schema -> 0002_add_in_transit_status, Add authoritative in-transit delivery state.
+INFO  [alembic.runtime.migration] Running upgrade 0002_add_in_transit_status -> 0003_delivery_proofs, Add durable delivery proof records.
+INFO  [alembic.runtime.migration] Running upgrade 0003_delivery_proofs -> 0004_pricing_snapshot, Persist immutable pricing snapshots on orders.
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0004_pricing_snapshot -> 0005_quotes_idempotency, Server-issued quotes and idempotent order creation.
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running downgrade 0005_quotes_idempotency -> 0004_pricing_snapshot, Server-issued quotes and idempotent order creation.
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0004_pricing_snapshot -> 0005_quotes_idempotency, Server-issued quotes and idempotent order creation.

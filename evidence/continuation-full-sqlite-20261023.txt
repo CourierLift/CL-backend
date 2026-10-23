@@ -1,0 +1,33 @@
+........................................................................ [ 15%]
+..............................ss........................................ [ 31%]
+........................................................ssssss.......... [ 46%]
+..........................sssss......................................... [ 62%]
+........................................................................ [ 77%]
+sss......s.....................................................ss....... [ 93%]
+................................                                         [100%]
+=============================== warnings summary ===============================
+.venv/lib/python3.11/site-packages/starlette/testclient.py:51
+  /workspace/scratch/22a62098b863/CL-backend/.venv/lib/python3.11/site-packages/starlette/testclient.py:51: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+=========================== short test summary info ============================
+SKIPPED [1] tests/test_legacy_runtime_native.py:46: Actual prepared legacy runtime is not configured
+SKIPPED [1] tests/test_legacy_runtime_native.py:138: Actual prepared legacy runtime is not configured
+SKIPPED [1] tests/test_pilot_backup_native.py:88: Opt-in native age test binary is not configured
+SKIPPED [1] tests/test_pilot_backup_native.py:103: Opt-in native age test binary is not configured
+SKIPPED [1] tests/test_pilot_backup_native.py:163: Opt-in native age test binary is not configured
+SKIPPED [1] tests/test_pilot_backup_native.py:179: Opt-in native age test binary is not configured
+SKIPPED [1] tests/test_pilot_backup_native.py:193: Opt-in native age test binary is not configured
+SKIPPED [1] tests/test_postgres_concurrency.py:37: requires the PostgreSQL production-style test database
+SKIPPED [2] tests/test_postgres_cutover.py:250: requires disposable loopback PostgreSQL
+SKIPPED [1] tests/test_postgres_cutover.py:270: requires disposable loopback PostgreSQL
+SKIPPED [1] tests/test_postgres_cutover.py:288: requires disposable loopback PostgreSQL
+SKIPPED [1] tests/test_postgres_cutover.py:301: requires disposable loopback PostgreSQL
+SKIPPED [1] tests/test_quote_idempotency.py:308: restart simulation needs a persistent database
+SKIPPED [1] tests/test_quote_idempotency.py:346: real concurrency requires PostgreSQL (CL_DATABASE_URL)
+SKIPPED [1] tests/test_quote_idempotency.py:358: real concurrency requires PostgreSQL (CL_DATABASE_URL)
+SKIPPED [1] tests/test_quote_idempotency.py:429: real concurrency requires PostgreSQL (CL_DATABASE_URL)
+SKIPPED [1] tests/test_release_bootstrap.py:255: Opt-in native age test binary is not configured
+SKIPPED [1] tests/test_release_bootstrap.py:306: Opt-in native age test binary is not configured
+445 passed, 19 skipped, 1 warning in 101.09s (0:01:41)

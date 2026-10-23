@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from tests.image_helpers import photo_bytes
 
 from backend.main import app
 from backend.quote_engine import PRICING_ENGINE_VERSION
@@ -60,13 +61,16 @@ def test_full_cross_user_mvp_transaction_survives_fresh_sessions(client):
         "delivery_requirements": [],
     }
 
-    quote = client.post("/quote/estimate", json=payload)
+    # COMPAT (qa/quote-idempotency): the sender requests an authenticated,
+    # orderable quote and creates the order from its quote_id with an
+    # Idempotency-Key, as required by the agreed contract.
+    quote = client.post("/quote/estimate", json=payload, headers=sender_headers)
     assert quote.status_code == 200, quote.text
 
     created = client.post(
         "/orders/create_compat",
-        json=payload,
-        headers=sender_headers,
+        json={**payload, "quote_id": quote.json()["quote_id"]},
+        headers={**sender_headers, "Idempotency-Key": "mvp-create-attempt-1"},
     )
     assert created.status_code == 201, created.text
     order = created.json()
@@ -129,7 +133,7 @@ def test_full_cross_user_mvp_transaction_survives_fresh_sessions(client):
         proof = courier_device.post(
             f"/orders/{order_id}/proof",
             headers=courier_device_headers,
-            files={"file": ("proof.jpg", b"mvp-delivery-proof", "image/jpeg")},
+            files={"file": ("proof.jpg", photo_bytes(), "image/jpeg")},
         )
         assert proof.status_code == 201, proof.text
 

@@ -16,6 +16,10 @@ uvicorn backend.main:app --host 0.0.0.0 --port "${PORT:-8000}" --workers 1
 
 ## Pre-release gate
 
+For the invite-only candidate, additionally verify the manual-invite gate and
+private operator workflow in [INVITE_PILOT.md](INVITE_PILOT.md). Keep public
+registration closed; template edits here do not change live Render settings.
+
 Before deploying a candidate:
 
 1. Backend PR CI is green on both SQLite and PostgreSQL.

@@ -1,0 +1,137 @@
+{
+  "date_utc": "2026-10-22T22:09:48.880726+00:00",
+  "scope": "Local synthetic data only. No hosted migration, configuration, deployment, credentials or resources changed.",
+  "source_base": "63b14e408e518e9252773f0665c6bc235cefe917",
+  "python": "3.11.17",
+  "postgresql": "16.15 (Ubuntu 16.15-0ubuntu0.24.04.1)",
+  "dependencies": {
+    "sqlalchemy": "2.0.43",
+    "alembic": "1.20.1",
+    "psycopg": "3.3.6",
+    "pytest": "8.4.1",
+    "fastapi": "0.116.1",
+    "httpx": "0.28.1",
+    "boto3": "1.43.118",
+    "anyio": "4.15.1"
+  },
+  "full_postgres_suite": {
+    "passed": 298,
+    "skipped": 0,
+    "seconds": 101.46,
+    "command": "CL_DATABASE_URL=<disposable loopback pilot_backend_tests> python -m pytest -q"
+  },
+  "full_sqlite_suite": {
+    "passed": 288,
+    "skipped_postgres_only": 10,
+    "seconds": 81.9,
+    "command": "CL_DATABASE_URL=sqlite:///:memory: python -m pytest -q"
+  },
+  "final_cutover_postgres_suite": {
+    "passed": 55,
+    "skipped": 0,
+    "seconds": 17.12,
+    "command": "CL_DATABASE_URL=<disposable loopback pilot_backend_tests> python -m pytest -q tests/test_postgres_cutover.py"
+  },
+  "final_cutover_sqlite_suite": {
+    "passed": 50,
+    "skipped_postgres_only": 5,
+    "seconds": 9.27,
+    "command": "CL_DATABASE_URL=sqlite:///:memory: python -m pytest -q tests/test_postgres_cutover.py"
+  },
+  "test_revision_note": "After the 298-case full runs, a legacy-only rollback bundle guard and two independently reproduced checkout-index/ancestor-dotenv protections added five cases. The complete final 55-case cutover suite was rerun on both databases, and the actual-old-commit pre-start recovery probe was repeated successfully on the final wrapper. Current collection: 303 cases. Do not describe the earlier full runs as a 303-case full run.",
+  "migrations": {
+    "postgresql_empty_head_base_head": "PASS",
+    "sqlite_empty_head_base_head": "PASS",
+    "reviewed_head": "0005_quotes_idempotency"
+  },
+  "compile_and_template_invariants": "PASS",
+  "warning": "One Starlette TestClient/AnyIO BlockingPortal deprecation warning; no test failure.",
+  "postgres_recovery": {
+    "scope": "Synthetic local PostgreSQL 16.15 only; not hosted Render or S3 recovery",
+    "backup": "pg_dump --format=custom --no-owner --no-privileges",
+    "restore": "pg_restore --single-transaction --exit-on-error --no-owner --no-privileges",
+    "restored_to_fresh_database": true,
+    "restored_to_independent_photo_directory": true,
+    "full_table_digests_equal": true,
+    "tables": {
+      "users": {
+        "rows": 2,
+        "sha256": "be8526559292378fa2445be6a6f4818e4d8c07e7d82198979634b71c3b5294ca"
+      },
+      "courier_profiles": {
+        "rows": 1,
+        "sha256": "c092de76d7077eae8101162d07d8359acfc3bb7d5232aa2b872890cbff7cd332"
+      },
+      "quotes": {
+        "rows": 1,
+        "sha256": "b8b687edcbc6e9f4eb990ed96c71f2d344794794749304341fb88ae1d29ee8fc"
+      },
+      "orders": {
+        "rows": 1,
+        "sha256": "515ec76d59935b3b2a5a89b2e2bdc5d11dcc1df198b5cf8b24caf2c80f8df2db"
+      },
+      "delivery_proofs": {
+        "rows": 1,
+        "sha256": "b30a53de065341baea3830319cd2d4e4809a10cec4a4aef4d4613ebb02ef646a"
+      },
+      "reward_events": {
+        "rows": 0,
+        "sha256": "4f53cda18c2baa0c0354bb5f9a3ecbe5ed12ab4d8e11ba873c2f11161202b945"
+      }
+    },
+    "dump_bytes": 26714,
+    "dump_sha256": "6abadcaf6bd93b908505fe8979bd15d01085304f7ac901048206bbe1499463d3",
+    "fresh_process_verification": {
+      "action": "verify",
+      "order_id": 1,
+      "price": 20.27,
+      "orders": 1,
+      "quotes": 1,
+      "proofs": 1,
+      "photo_sha256": "2502827a89eac69872dccd9ed99aa37ea971d7f82fcfaf80586ff95e1c1fcb98",
+      "fresh_login": "PASS",
+      "same_key_replay": "PASS"
+    }
+  },
+  "old_sqlite_prestart_recovery": {
+    "scope": "Synthetic local pre-start rollback only; hosted retrieval/start route unverified",
+    "old_commit": "7580a9ca95f0d0795b6362e0b638181359f1b3c5",
+    "old_code_used_sqlite_only": true,
+    "restore_before_process_start": true,
+    "fresh_customer_login_and_history_equal": true,
+    "fresh_courier_login_and_history_equal": true,
+    "order_id": 1,
+    "price": 20.27,
+    "photo_sha256": "a1dd3dec5d0b1dc3d32f244d85a55287810a192fe2b6c53182399cb0dfeb8089",
+    "sqlite_backup_sha256": "c9b94e767b4dee86f2606194504414fab1491db56bd1bf5f3eeabc334ccbab87",
+    "all_table_digests_equal_after_app_requests": true,
+    "sqlite_file_hash_equal_after_app_requests": true,
+    "all_proof_file_hashes_equal": true
+  },
+  "final_source_sha256": {
+    "scripts/postgres_cutover.py": "43881e014c273625d7c739e308463c29222d3397ae029ec5181f54497f9db089",
+    "scripts/start_sqlite_rollback.py": "40afd7ba81f2cedda6a4c30241fc2fc151cf5c0e0db5b3a03af3afa5aef252cc",
+    "scripts/verify_pilot_persistence.py": "2295f55304d668868863a4dcd7384d74327841b3429cd76cdfba3353990f11cf",
+    "tests/database_safety.py": "b67a5b464e9c887daefcc17b5021c3b12244c66e5902fcaf368eab109e6a59b1",
+    "tests/conftest.py": "a6b08fc9fb7cbabf1674daa802c5eb87aa3a19e2e0ff4764e74c944bec8c1130",
+    "tests/test_postgres_cutover.py": "c8b69f023c1cf0444d39684a22326c30f97338ae1723f5090c06a8e8a6eeb775",
+    "backend/main.py": "642ae893a9b2c8f7b64924ec11b3981ac5838808ae99d3fa168b48b7b8610aa3",
+    "backend/settings.py": "49f69580ca4e24fa729436a72fe8c7988eb60f6e12184eba4cbd5a390e835985",
+    "tests/test_release_origins.py": "129cf531427bf0fc3045c16acac18c5cdc041e3cdfdce635a1116e497ff8fb14",
+    "ops/pilot-storage/proof_objects.py": "f06d11989aecf6ad04dfbb920b393d4004a868df368c6eb5fea54f36bf328d36",
+    "tests/test_s3_proof_recovery.py": "f3084d2a2411a7a82f6858fef85be85ea8db7e167bb211de8b0f058e139dfa21",
+    "render.yaml": "5e2b3f3fdd4d4216a1b6ab8e5112a5b89607fed766c00c7dc4eb6cadce2f8110"
+  },
+  "unverified": [
+    "Hosted SQLite export/import",
+    "Real S3 policy/credentials/object durability",
+    "Render managed recovery",
+    "Hosted secure old-code bootstrap retrieval/start mechanism",
+    "Post-release customer-to-courier delivery and saved history"
+  ],
+  "independent_review": {
+    "libpq_host_override": "PGHOSTADDR bypass reproduced and fixed by rejecting inherited PG* overrides; regression tests passed",
+    "hidden_git_index_flags": "assume-unchanged/skip-worktree modified-file bypass reproduced; fixed with independent tracked working-file Git blob hashing; both regressions passed",
+    "ancestor_dotenv_injection": "Old python-dotenv ancestor file injection reproduced; fixed with ancestor file/symlink rejection; both regressions passed"
+  }
+}

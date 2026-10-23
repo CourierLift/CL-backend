@@ -1,0 +1,277 @@
+### anonymous estimate (client surge 3.0 ignored)
+POST /quote/estimate -> 200
+{
+ "price_total": 25.09,
+ "eta_min": 32,
+ "miles": 7.5,
+ "tier": "Standard",
+ "estimated": true,
+ "distance_source": "development_fallback"
+}
+
+### authenticated estimate
+POST /quote/estimate -> 200
+{
+ "price_total": 25.09,
+ "eta_min": 32,
+ "miles": 7.5,
+ "tier": "Standard",
+ "estimated": true,
+ "distance_source": "development_fallback",
+ "quote_id": "q_33a90f570b6a4a430fa77da81f641e36",
+ "expires_at": "2026-10-12T20:49:20.165918Z",
+ "expires_in_seconds": 899,
+ "pricing_conditions": {
+  "weather": "clear",
+  "traffic": "medium",
+  "surge": 1.0
+ }
+}
+
+### create
+POST /orders/create_compat -> 201
+{
+ "id": 1,
+ "user_id": 1,
+ "assigned_courier_id": null,
+ "origin": "100 Main Street",
+ "destination": "200 Oak Avenue",
+ "pickup_lat": null,
+ "pickup_lng": null,
+ "dropoff_lat": null,
+ "dropoff_lng": null,
+ "vehicle": "car",
+ "item_type": "standard",
+ "delivery_requirements": [],
+ "quantity": 2,
+ "weight_lb": 17.6369809744,
+ "length_in": 24.0,
+ "width_in": 18.0,
+ "height_in": 14.0,
+ "price": 25.09,
+ "eta_min": 32,
+ "distance_miles": 7.5,
+ "distance_estimated": true,
+ "distance_source": "development_fallback",
+ "pricing_engine_version": "2026-09-08-v1",
+ "pricing_snapshot": "{...copied from quote...}",
+ "quote_id": "q_33a90f570b6a4a430fa77da81f641e36",
+ "status": "pending",
+ "created_at": "2026-10-12T20:34:20.183676",
+ "assigned_at": null,
+ "completed_at": null
+}
+
+### replay same key
+POST /orders/create_compat -> 200
+{
+ "id": 1,
+ "user_id": 1,
+ "assigned_courier_id": null,
+ "origin": "100 Main Street",
+ "destination": "200 Oak Avenue",
+ "pickup_lat": null,
+ "pickup_lng": null,
+ "dropoff_lat": null,
+ "dropoff_lng": null,
+ "vehicle": "car",
+ "item_type": "standard",
+ "delivery_requirements": [],
+ "quantity": 2,
+ "weight_lb": 17.6369809744,
+ "length_in": 24.0,
+ "width_in": 18.0,
+ "height_in": 14.0,
+ "price": 25.09,
+ "eta_min": 32,
+ "distance_miles": 7.5,
+ "distance_estimated": true,
+ "distance_source": "development_fallback",
+ "pricing_engine_version": "2026-09-08-v1",
+ "pricing_snapshot": "{...copied from quote...}",
+ "quote_id": "q_33a90f570b6a4a430fa77da81f641e36",
+ "status": "pending",
+ "created_at": "2026-10-12T20:34:20.183676",
+ "assigned_at": null,
+ "completed_at": null
+}
+
+### same quote different key
+POST /orders/create_compat -> 409
+{
+ "detail": {
+  "code": "quote_already_used",
+  "message": "An order was already created from this quote.",
+  "fields": [],
+  "order_id": 1
+ }
+}
+
+### other customer uses quote
+POST /orders/create_compat -> 404
+{
+ "detail": {
+  "code": "quote_not_found",
+  "message": "Quote not found.",
+  "fields": []
+ }
+}
+
+### missing key
+POST /orders/create_compat -> 400
+{
+ "detail": {
+  "code": "idempotency_key_required",
+  "message": "An Idempotency-Key header of 8-128 visible ASCII characters is required.",
+  "fields": []
+ }
+}
+
+### missing quote_id
+POST /orders/create_compat -> 422
+{
+ "detail": {
+  "code": "quote_required",
+  "message": "A quote_id from a current quote is required.",
+  "fields": [
+   {
+    "loc": [
+     "body",
+     "quote_id"
+    ],
+    "message": "Field required",
+    "type": "missing"
+   }
+  ]
+ }
+}
+
+### details changed
+POST /orders/create_compat -> 409
+{
+ "detail": {
+  "code": "quote_details_mismatch",
+  "message": "Delivery details changed since this quote. Request a new quote.",
+  "fields": []
+ }
+}
+
+### same key different request
+POST /orders/create_compat -> 409
+{
+ "detail": {
+  "code": "idempotency_key_reused",
+  "message": "This Idempotency-Key was already used for a different request.",
+  "fields": []
+ }
+}
+
+### expired quote
+POST /orders/create_compat -> 409
+{
+ "detail": {
+  "code": "quote_expired",
+  "message": "This quote has expired. Request a new quote.",
+  "fields": []
+ }
+}
+
+### malformed body
+POST /orders/create_compat -> 422
+{
+ "detail": {
+  "code": "invalid_request",
+  "message": "The request body is invalid.",
+  "fields": [
+   {
+    "loc": [
+     "body",
+     "origin"
+    ],
+    "message": "String should have at least 1 character",
+    "type": "string_too_short"
+   },
+   {
+    "loc": [
+     "body",
+     "destination"
+    ],
+    "message": "Field required",
+    "type": "missing"
+   },
+   {
+    "loc": [
+     "body",
+     "quantity"
+    ],
+    "message": "Input should be a valid integer, unable to parse string as an integer",
+    "type": "int_parsing"
+   }
+  ]
+ }
+}
+
+### no auth
+POST /orders/create_compat -> 401
+{
+ "detail": {
+  "code": "not_authenticated",
+  "message": "Not authenticated",
+  "fields": []
+ }
+}
+
+### coordinate quote
+POST /quote -> 200
+{
+ "price": 37.58,
+ "eta": 56,
+ "miles": 17.09,
+ "tier": "Priority",
+ "estimated": false,
+ "distance_source": "coordinate_haversine",
+ "quote_id": "q_ea39192dff9bfc9ad93ab733043bea20",
+ "expires_at": "2026-10-12T20:49:20.230198Z",
+ "expires_in_seconds": 899,
+ "pricing_conditions": {
+  "weather": "clear",
+  "traffic": "medium",
+  "surge": 1.0
+ }
+}
+
+### coordinate create
+POST /orders -> 201
+{
+ "id": 2,
+ "user_id": 1,
+ "assigned_courier_id": null,
+ "origin": null,
+ "destination": null,
+ "pickup_lat": 30.2672,
+ "pickup_lng": -97.7431,
+ "dropoff_lat": 30.5083,
+ "dropoff_lng": -97.6789,
+ "vehicle": "car",
+ "item_type": "standard",
+ "delivery_requirements": [],
+ "quantity": 1,
+ "weight_lb": 20.0,
+ "length_in": 12.0,
+ "width_in": 8.0,
+ "height_in": 6.0,
+ "price": 37.58,
+ "eta_min": 56,
+ "distance_miles": 17.09,
+ "distance_estimated": false,
+ "distance_source": "coordinate_haversine",
+ "pricing_engine_version": "2026-09-08-v1",
+ "pricing_snapshot": "{...copied from quote...}",
+ "quote_id": "q_ea39192dff9bfc9ad93ab733043bea20",
+ "status": "pending",
+ "created_at": "2026-10-12T20:34:20.238598",
+ "assigned_at": null,
+ "completed_at": null
+}
+
+### CORS preflight -> 200 {'access-control-allow-methods': 'DELETE, GET, HEAD, OPTIONS, PATCH, POST, PUT', 'access-control-max-age': '600', 'access-control-allow-credentials': 'true', 'access-control-allow-origin': 'http://localhost:5173', 'access-control-allow-headers': 'authorization,content-type,idempotency-key'}

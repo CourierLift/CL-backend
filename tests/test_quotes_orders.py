@@ -1,3 +1,5 @@
+from tests.order_helpers import quoted_create  # COMPAT: quote-bound creation
+from tests.image_helpers import photo_bytes
 import pytest
 
 from backend.quote_engine import estimate_quote
@@ -16,7 +18,7 @@ def create_delivery(client, headers, **overrides):
         "height_in": 6,
     }
     payload.update(overrides)
-    return client.post("/orders/create_compat", json=payload, headers=headers)
+    return quoted_create(client, "/orders/create_compat", json=payload, headers=headers)
 
 
 def test_address_quote_generation_is_explicitly_estimated(client):
@@ -268,7 +270,7 @@ def test_legal_status_progression_and_terminal_state(client, user_factory):
     proof = client.post(
         f"/orders/{order['id']}/proof",
         headers=courier["headers"],
-        files={"file": ("proof.jpg", b"proof", "image/jpeg")},
+        files={"file": ("proof.jpg", photo_bytes(), "image/jpeg")},
     )
     delivered = client.patch(
         f"/orders/{order['id']}/status",
