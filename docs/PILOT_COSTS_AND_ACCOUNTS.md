@@ -192,6 +192,17 @@ the additional recovery photo copy for a whole month adds approximately
 **$0.01 / $0.13 / $0.51** respectively. Real runtime, repeated verification and
 retention duration change those figures.
 
+An incident that **adopts** the recovered database/photo pair additionally needs
+a separately approved fresh backup bucket with the fixed `courierlifts-backups/v1`
+prefix; current archive identity rules cannot safely mix old and adopted sources
+in one bucket. Retain the original backup bucket/keys. The ordinary monthly and
+restore-drill examples above exclude this incident-only duplicate archive set:
+apply $0.023 per GiB-month to its additional encrypted photo/database bytes plus
+the documented request, verification and transfer rates, and price the required
+post-adoption restore check before approval. No third cron service is needed;
+the two approved cron services are rebound to the adopted pair. Actual incident
+size, retained old versions and retention duration determine the extra amount.
+
 These estimates do not purchase or price a new recovery database. Recovery on
 the existing instance is contingent on safe capacity and access. Render's
 point-in-time recovery creates a new instance, so any such paid recovery

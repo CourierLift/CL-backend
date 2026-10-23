@@ -254,6 +254,19 @@ bucket, pin a durable receipt, then recheck the database and stored photo bytes
 before importing/starting compatible application code. Maintenance remains
 enabled until the application acceptance gates pass.
 
+If an incident adopts the recovered database/photo pair, backup coverage must
+move with it before reopening. Follow the incident-adoption handoff in
+[COORDINATED_PILOT_RELEASE.md](COORDINATED_PILOT_RELEASE.md): rebind normal
+application proof permissions, the database reader grants/URL, both cron source
+configurations and role-specific IAM. Use a separately approved **fresh backup
+bucket** with the existing fixed `courierlifts-backups/v1` prefix, retaining the
+old bucket/configuration/private keys for earlier checkpoints. A different prefix
+is unsupported, and reusing the old backup bucket after changing the source photo
+bucket collides with immutable archive source metadata. Verify a fresh checkpoint,
+restore, actual scheduled run and delivered alerts for the adopted pair. A restore
+drill leaves the live source's ordinary configuration in place. Neither a green
+old-source monitor nor a manual backup establishes new-source automation.
+
 Database dumps do not contain deployment configuration, signing secrets,
 offline recovery keys, IAM/bucket policy definitions, Git source or the original
 SQLite backup's unreferenced local files. Preserve those separately through the

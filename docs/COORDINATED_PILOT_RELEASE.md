@@ -84,6 +84,7 @@ existing S3 adapter. These are proposed names, not existing or reserved buckets:
 | `courierlifts-pilot-proofs-<account-id>-us-west-2` | Private, versioned runtime proofs; `proofs/*` only for the application identity. Reuse an existing suitable bucket only after checking owner, actual region, policies, lifecycle and other workloads. |
 | `courierlifts-pilot-backups-<account-id>-us-west-2` | Separate private, versioned backup destination. Automated encrypted objects live under **`courierlifts-backups/v1/`**. Reserve separate operator-only prefixes for the frozen original legacy bundle and recovery receipts. |
 | `courierlifts-pilot-recovery-<account-id>-us-west-2` | Initially empty private, versioned bucket for the approved hosted restore drill. An incident requires a fresh empty bucket; do not empty/reuse an occupied bucket to bypass the guard. A later unique suffix must be explicitly recorded and approved. |
+| Fresh backup bucket if an incident adopts recovered targets | Separately approve and record a new private, versioned Oregon bucket, using the existing fixed `courierlifts-backups/v1` prefix. Retain the original backup bucket/configuration/keys. This conditional resource and its duplicate storage are outside the ordinary release cost examples. |
 | `courierlifts-pilot-backup` | New Render cron service, same workspace/Oregon, 0.5 CPU / 512 MB, reviewed Dockerfile and exact backend SHA; daily **07:00 UTC**, `0 7 * * *`. No service ID exists yet. |
 | `courierlifts-pilot-backup-watch` | Separate new cron service, same workspace/Oregon and exact backend SHA; hourly at minute **15**, `15 * * * *`. After a successful freshness check, retention runs at **08:15 UTC**. No service ID exists yet. |
 | `courierlifts_recovery_<approved_suffix>` | New empty logical database on the existing PostgreSQL instance for the hosted restore drill, only if the existing role permissions and available storage support it. This does not authorize a new managed PostgreSQL instance, storage increase or autoscaling. |
@@ -366,17 +367,23 @@ and **`/ready`** health check.
    partly populated destinations stay quarantined; never erase them for a blind
    retry.
 4. Stage the approved compatible web artifact with the recovered database URL,
-   recovered photo bucket and temporary receipt/read credentials. Set startup
+   recovered photo bucket and temporary receipt/read credentials. Rebind the
+   normal application proof read/write IAM policy and `AWS_*` credentials to
+   the approved recovered bucket's `proofs/*` scope. Temporary recovery
+   credentials are removed before serving and cannot supply normal application
+   access. Set startup
    to the command below and health check to `/ready`. The wrapper retrieves the
    exact receipt, verifies its release SHA, target host/port/database, all table
    digests and every current proof/version/hash **before importing the app**.
 5. While maintenance remains enabled, restore normal startup
    `python scripts/start_pilot.py`, remove temporary recovery variables and
    redeploy the same approved compatible SHA against the verified durable
-   PostgreSQL/S3 pair. Recheck readiness and preserved state before reopening
-   controlled traffic. This prevents an ordinary future restart from replaying
+   PostgreSQL/S3 pair. Recheck readiness and preserved state while keeping
+   public traffic closed. This prevents an ordinary future restart from replaying
    an old checkpoint or requiring a receipt whose data has legitimately changed.
-6. Test saved customer/courier history, original prices, proof authorization,
+6. Complete the incident-adoption backup handoff below. A green monitor for the
+   original source is not protection for the newly adopted database/photo pair.
+7. Test saved customer/courier history, original prices, proof authorization,
    bytes and another ordinary restart. Retain the source/failed targets and
    receipts according to the incident decision. Do not perform an Alembic
    downgrade or substitute old SQLite after acceptance writes.
@@ -384,6 +391,55 @@ and **`/ready`** health check.
 ```sh
 python scripts/start_pilot.py --mode recovered-postgres --maintenance-confirmed
 ```
+
+### Incident adoption: move backup coverage with the recovered targets
+
+This handoff is required when recovered targets become the live application
+targets. A restore drill leaves the original live targets and their ordinary
+backup configuration in place; it does not adopt or silently retarget them.
+
+1. Keep writers stopped and invitations/public traffic closed. Separately approve
+   a **fresh, empty backup bucket** in `us-west-2`, with the same private,
+   versioned, owner-enforced, TLS-only and SSE-S3 controls. Record its actual
+   name/owner and the incident's additional storage/request charges. The code and
+   IAM templates require the fixed prefix `courierlifts-backups/v1`; changing the
+   prefix is unsupported. Reusing the original backup bucket with a changed
+   source photo bucket would collide with immutable encrypted photo archives
+   whose metadata binds the old source. Do not overwrite those archives or mix
+   success markers from different sources.
+2. Preserve the original backup bucket, original source configuration, pinned
+   checkpoint references and every necessary private age identity. Keep them
+   available for earlier recovery; do not apply the new source's retention job
+   to that bucket. Retiring old sources, keys or their storage is a separate
+   reviewed incident decision, not an automatic cleanup step.
+3. In the adopted logical database, grant the existing `courierlifts_backup`
+   login `CONNECT` to that exact database, `USAGE` on `public`, and `SELECT` on
+   the known application/migration tables and sequences. Review the database
+   name substitution in `ops/pilot-backup/database-reader.template.sql`; do not
+   blindly rerun its `CREATE ROLE` or original-database grant. Keep the login
+   read-only and verify a write is denied. Set the daily cron's
+   `CL_BACKUP_DATABASE_URL` to this adopted database through the secure channel.
+4. With both cron schedules suspended and active runs drained, update
+   `CL_BACKUP_CONFIG_JSON` on **both** services: exact adopted `source_host`,
+   `source_port`, `source_database`, `source_bucket`, `source_owner`, fresh
+   `backup_bucket`/`backup_owner`, Oregon region, fixed prefix, reviewed public
+   age recipient and recovery owner. Rebind the writer's source-proof reads to
+   the adopted bucket and its archive writes to the fresh backup bucket. Rebind
+   the monitor, retention and recovery read policies to that fresh destination,
+   preserving each role's existing limitations. Verify the normal web identity
+   can read/write only the approved runtime proof scope. Temporary recovery
+   identities are not substitutes for these scheduled/application identities.
+5. Remove all temporary recovery secrets from the base service. Run and verify
+   a fresh manual checkpoint of the adopted database/photo pair, then restore
+   that checkpoint into another approved empty target and verify its rows,
+   proofs and saved history. Any additional target/storage cost needs the
+   applicable incident approval; inability to perform this verification is a
+   blocker. Record the pinned marker and actual source/backup identities.
+6. Resume the two schedules with these adopted-source settings. Observe an
+   **actual scheduled** successful checkpoint, freshness against the new backup
+   bucket and delivered controlled failure/stale alerts. Maintenance suppression
+   or a manually triggered success is not a scheduled success. Reopen only after
+   these checks and the application's preserved-history/proof checks pass.
 
 If the source is unavailable or corrupt and a fresh matching checkpoint cannot
 be obtained, stop and name the newest recoverable checkpoint/time and the known
@@ -426,9 +482,12 @@ execution sequence is explicit:
    pinned startup reference; independently retrieve/verify that receipt before
    configuring the web service. A job ID, a startup log or absence of email is
    not success. On failure retain targets closed and investigate.
-6. Verify the base service contains only its ordinary public-recipient backup
-   configuration/credentials, resume its schedule, and record successful next
-   execution/freshness. The one-off job's temporary private files are removed on
+6. For a **restore drill**, verify the base service contains only the original
+   live source's ordinary public-recipient backup configuration/credentials,
+   resume its schedule, and record successful next execution/freshness. For an
+   **incident that adopts recovered targets**, complete the incident-adoption
+   handoff above before resuming; do not restore the abandoned source's ordinary
+   configuration. The one-off job's temporary private files are removed on
    exit. Account access to historical job metadata remains part of the secure
    recovery account boundary.
 

@@ -61,6 +61,13 @@ The existing PostgreSQL instance is `dpg-dauihb893c1s73ecnihg-a`,
   GitHub CI results remain separately recorded for the published commit.
 - Both proposed Render YAML files passed local validation against the captured
   official Render schema. No Blueprint was applied.
+- Published implementation `baa223c721c5d698c15601f785c1a800566b918e` passed
+  [all four backend CI jobs](https://github.com/CourierLift/CL-backend/actions/runs/39901946881):
+  SQLite **445 passed / 19 skips**, PostgreSQL **455 passed / 9 opt-in skips**,
+  native web build plus **2 actual legacy-runtime tests**, and the actual backup
+  container plus **93 recovery tests**. These jobs overlap; do not add their
+  totals. The local full PG run above includes all opt-in cases. The subsequent
+  documentation-only recovery handoff and its final SHA/CI record are in PR #8.
 
 Evidence: [automated backups](evidence/automated-backup-validation-20261022.json),
 [actual legacy runtime](evidence/legacy-runtime-validation-20261022.json),
@@ -131,6 +138,13 @@ exact frozen legacy checkpoint and only then start old SQLite code in maintenanc
 After **any new PG write**, preserve a fresh PG/photo checkpoint and use a
 compatible forward fix or fresh-target PG recovery. Never rewind to old SQLite.
 A source write after the checkpoint blocks publishing its recovery receipt.
+If recovered targets become live, rebind application proof permissions, backup
+database grants/URL, both cron configurations and IAM to that pair. Use a
+separately approved fresh backup bucket with the existing fixed prefix, keeping
+old checkpoints/configuration/keys intact. Verify a new checkpoint, restore,
+actual schedule and delivered alerts before reopening; the old source's green
+monitor is not coverage for adopted targets. This incident-only duplicate archive
+storage is outside the ordinary monthly examples and needs its own cost approval.
 Source-unavailable disaster recovery needs a separately accepted recovery point;
 daily backups are not a promise of zero lost writes in every disaster.
 
@@ -138,8 +152,9 @@ daily backups are not a promise of zero lost writes in every disaster.
 
 - Bind the actual AWS account/payer and available bucket names through necessary
   secure account selection/read-only access. No AWS credentials were created.
-- Finish publication and CI for the exact backend continuation, and final
-  cross-document verification. An old green PR run is not the new run.
+- Verify the final reviewed SHA and its CI record in each PR when binding the
+  release approval. Implementation publication and its four backend CI jobs
+  have passed; a moving branch tip is never approval to deploy.
 - Obtain the coordinated resource/configuration/migration/deployment approval.
 - After approval, prove real hosted storage, a successful scheduled encrypted
   backup, delivered failure/stale alerts, fresh-target restore and startup.
