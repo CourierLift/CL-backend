@@ -8,6 +8,7 @@ Here the same reproductions now assert the CORRECTED behavior.
 """
 import json
 from tests.order_helpers import quoted_create
+from tests.image_helpers import photo_bytes
 P = {"origin":"100 Main Street","destination":"200 Oak Avenue","vehicle":"car","item_type":"standard",
      "weight_kg":8,"quantity":2,"length_in":24,"width_in":18,"height_in":14,
      "weather":"clear","traffic":"medium","surge":1.0,"delivery_requirements":[]}
@@ -69,7 +70,7 @@ def test_permissions_and_proof_gate(client, user_factory):
     res["pickup_repeat"] = client.patch(f"/orders/{oid}/status", json={"status":"picked_up"}, headers=k["headers"]).status_code
     res["transit"] = client.patch(f"/orders/{oid}/status", json={"status":"in_transit"}, headers=k["headers"]).status_code
     res["deliver_without_proof"] = client.patch(f"/orders/{oid}/status", json={"status":"delivered"}, headers=k["headers"]).status_code
-    f = {"file":("p.jpg", b"x", "image/jpeg")}
+    f = {"file":("p.jpg", photo_bytes(), "image/jpeg")}
     res["customer_proof"] = client.post(f"/orders/{oid}/proof", files=f, headers=c["headers"]).status_code
     res["other_courier_proof"] = client.post(f"/orders/{oid}/proof", files=f, headers=other_k["headers"]).status_code
     res["bad_type_proof"] = client.post(f"/orders/{oid}/proof", files={"file":("p.txt", b"x", "text/plain")}, headers=k["headers"]).status_code

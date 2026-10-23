@@ -1,0 +1,53 @@
+# REVIEW ONLY. Two NEW paid cron services; no provisioning until approved.
+# Apply no database/web/static/NavGlass resource changes from this template.
+previews:
+  generation: "off"
+services:
+  - type: cron
+    name: courierlifts-pilot-backup
+    runtime: docker
+    repo: https://github.com/CourierLift/CL-backend
+    branch: work/integrated-unpaid-pilot-20261021
+    region: oregon
+    plan: 0.5c-512mb
+    schedule: "0 7 * * *"
+    autoDeployTrigger: "off"
+    dockerfilePath: ./ops/pilot-recovery/Dockerfile
+    dockerContext: .
+    dockerCommand: python ops/pilot-recovery/cron_entry.py backup
+    envVars:
+      - key: CL_RELEASE_SHA
+        sync: false
+      - key: CL_BACKUP_CONFIG_JSON
+        sync: false
+      - key: CL_BACKUP_DATABASE_URL
+        sync: false
+      - key: CL_BACKUP_WRITER_AWS_ACCESS_KEY_ID
+        sync: false
+      - key: CL_BACKUP_WRITER_AWS_SECRET_ACCESS_KEY
+        sync: false
+  - type: cron
+    name: courierlifts-pilot-backup-watch
+    runtime: docker
+    repo: https://github.com/CourierLift/CL-backend
+    branch: work/integrated-unpaid-pilot-20261021
+    region: oregon
+    plan: 0.5c-512mb
+    schedule: "15 * * * *"
+    autoDeployTrigger: "off"
+    dockerfilePath: ./ops/pilot-recovery/Dockerfile
+    dockerContext: .
+    dockerCommand: python ops/pilot-recovery/cron_entry.py monitor
+    envVars:
+      - key: CL_RELEASE_SHA
+        sync: false
+      - key: CL_BACKUP_CONFIG_JSON
+        sync: false
+      - key: CL_BACKUP_MONITOR_AWS_ACCESS_KEY_ID
+        sync: false
+      - key: CL_BACKUP_MONITOR_AWS_SECRET_ACCESS_KEY
+        sync: false
+      - key: CL_BACKUP_RETENTION_AWS_ACCESS_KEY_ID
+        sync: false
+      - key: CL_BACKUP_RETENTION_AWS_SECRET_ACCESS_KEY
+        sync: false

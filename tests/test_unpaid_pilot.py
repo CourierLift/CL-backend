@@ -7,6 +7,7 @@ from pydantic import ValidationError
 from backend.services.object_storage import LocalObjectStorage, S3ObjectStorage, get_object_storage
 from backend.settings import Settings, settings
 from tests.test_delivery_proof import create_and_claim_in_transit, submit_proof
+from tests.image_helpers import photo_bytes
 
 
 def test_unpaid_production_uses_no_google_and_binds_sample_quote(client, user_factory, monkeypatch):
@@ -57,7 +58,7 @@ def test_proof_photo_is_private_and_survives_new_storage_instance(client, user_f
         customer, courier, order = create_and_claim_in_transit(client, user_factory)
         other_customer = user_factory(role="customer")
         other_courier = user_factory(role="courier", transportation_mode="car")
-        uploaded = submit_proof(client, order["id"], courier["headers"], b"fictional-proof-photo")
+        uploaded = submit_proof(client, order["id"], courier["headers"], photo_bytes(orientation=6))
         assert uploaded.status_code == 201
         url = f"/orders/{order['id']}/proof"
         app.dependency_overrides[get_object_storage] = lambda: LocalObjectStorage(str(tmp_path))
@@ -66,7 +67,8 @@ def test_proof_photo_is_private_and_survives_new_storage_instance(client, user_f
             assert client.get(url, headers=other["headers"]).status_code == 403
         for authorized in (customer, courier):
             viewed = client.get(url, headers=authorized["headers"])
-            assert viewed.content == b"fictional-proof-photo"
+            assert viewed.status_code == 200
+            assert len(viewed.content) == uploaded.json()["size_bytes"]
             assert viewed.headers["cache-control"] == "private, no-store"
             assert sha256(viewed.content).hexdigest() == uploaded.json()["sha256"]
         storage._path(uploaded.json()["storage_key"]).write_bytes(b"tampered")

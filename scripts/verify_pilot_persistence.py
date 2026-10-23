@@ -5,6 +5,7 @@ Run `seed manifest.json`, pg_dump/restore into a second pilot_* database, then
 This verifies local database/photo continuity, not hosted S3 or Render backups.
 """
 import hashlib
+from io import BytesIO
 import json
 import os
 from pathlib import Path
@@ -23,10 +24,13 @@ from backend.database import SessionLocal
 from backend.models import Order, Quote, DeliveryProof, User, CourierProfile, RewardEvent
 from backend.schemas import RegisterIn
 from backend.services.account_provisioning import provision_account
+from PIL import Image
 
 action, manifest_path = sys.argv[1:]
 password = "fictional-local-only-password"
-image = bytes.fromhex("89504e470d0a1a0a") + b"fictional-persistence-fixture"
+with Image.new("RGB", (32, 16), (31, 110, 180)) as fixture, BytesIO() as output:
+    fixture.save(output, "PNG")
+    image = output.getvalue()
 
 with TestClient(app) as client:
     if action == "seed":
@@ -59,7 +63,7 @@ with TestClient(app) as client:
         proof = client.post(f"/orders/{oid}/proof", headers=courier, files={"file": ("fixture.png", image, "image/png")})
         assert proof.status_code == 201, proof.text
         assert client.patch(f"/orders/{oid}/status", json={"status": "delivered"}, headers=courier).status_code == 200
-        manifest = {"order_id": oid, "quote_id": quote["quote_id"], "price": order["price"], "body": body, "key": key, "photo_sha256": hashlib.sha256(image).hexdigest()}
+        manifest = {"order_id": oid, "quote_id": quote["quote_id"], "price": order["price"], "body": body, "key": key, "photo_sha256": proof.json()["sha256"]}
         Path(manifest_path).write_text(json.dumps(manifest, indent=2))
     else:
         manifest = json.loads(Path(manifest_path).read_text()); oid = manifest["order_id"]

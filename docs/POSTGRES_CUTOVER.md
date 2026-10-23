@@ -6,10 +6,16 @@ must name the reviewed backend/frontend commits, existing services/database,
 storage choice and costs, and maintenance window. Keep payments disabled and
 NavGlass untouched. Preserve the published frontend theme.
 
+The current coordinated execution/approval record is
+[COORDINATED_PILOT_RELEASE.md](COORDINATED_PILOT_RELEASE.md). It binds the private
+backup destination, automatic retention/alerts, real account choice, startup
+artifact and fresh-PostgreSQL recovery procedure. No daily manual-backup operating
+dependency or shell-copy-after-deployment procedure is proposed.
+
 ## Reconciled source and destination
 
 Backend PR #8 is based on `launch-readiness` (`a320a65f9d8be8c9f0d2a3e790f98a7ed3ff668e`),
-with prior reviewed head `63b14e408e518e9252773f0665c6bc235cefe917` on
+with preserved preparation head `5081cdd05e50d1079cdb3e37f2c3ef4f783dd6f2` on
 `work/integrated-unpaid-pilot-20261021`. The current preparation extends that
 candidate; the final reviewed SHA must include these preparation changes.
 The current deployed `main` is `7580a9ca95f0d0795b6362e0b638181359f1b3c5`.
@@ -200,15 +206,19 @@ python scripts/start_sqlite_rollback.py \
   --state-parent /tmp --port "$PORT" --maintenance-confirmed
 ```
 
-The **hosted bootstrap route remains a release gate**: a reviewed recovery
-artifact/start command must retrieve the exact clean old checkout, encrypted
-backup and protected original environment into the same instance/start invocation
-before this command runs. This utility does not fetch those artifacts or ask for
-credentials. The old deployed artifact does not contain this new wrapper, so an
-ordinary Render Rollback button is not an equivalent execution route. Establish
-and approve the secure retrieval/start mechanism before opening the pilot; if it
-is unavailable, remain in maintenance and forward-fix the compatible backend.
-Do not claim a hosted rollback was tested from the local rehearsal alone.
+The continuation supplies the complete prepared execution route:
+`prepare_release_runtime.py` packages the exact old source, Python 3.13.4 and all
+54 observed package versions into the candidate artifact. `start_pilot.py`
+retrieves the version/hash-pinned encrypted bundle, verifies the current PG rows
+still equal the frozen source, decrypts/restores in that same instance, checks
+the runtime inventory, and only then executes the old backend. Temporary secret
+environment values become private files and are cleaned before web exec. Set
+health check `/health` for legacy recovery; compatible normal/PG-recovery startup
+uses `/ready`. The exact workflow and secure variables are in the coordinated
+runbook. Native actual-old-runtime tests passed, including both users' logins,
+histories, preserved local photo bytes and refusal after a later PG write.
+The **hosted execution remains unverified** until approved real retrieval/start
+and recovery tests pass; an ordinary Render Rollback button is not this route.
 
 The wrapper is a **maintenance-only recovery checkpoint**, not a durable ongoing
 SQLite fallback. Every invocation restores the frozen bundle to a new directory;
@@ -267,13 +277,10 @@ Local proof bytes and mocked object-storage tests cannot establish real S3
 credentials, bucket policy, network reachability, managed backups or hosted
 recovery. Those remain explicit release gates.
 
-Current-session results and exact tested file hashes are recorded in
+The earlier preparation evidence remains in
 [backend-validation-20261022.json](../evidence/backend-validation-20261022.json).
-The latest full runs passed 298 PostgreSQL cases and 288 SQLite cases (10
-PostgreSQL-only skips). Final legacy-only bundle, independent checkout-byte and
-ancestor-dotenv safeguards added five cases after those runs; the complete final
-cutover suite passed 55/55 on PostgreSQL and 50 with 5 PostgreSQL-only skips on
-SQLite. The current suite collects 303 cases; these results must not be described
-as a single 303-case full run.
-Native PostgreSQL dump/restore and the exact-old-code pre-start SQLite recovery
-drills also passed locally. No hosted restore or deployment has been performed.
+Continuation evidence separately records the automated backup suite, actual
+legacy runtime build/drill, photo normalization and final complete SQLite/PG
+runs. Use their recorded commands, source boundaries and skip counts; do not
+apply an older green result to a later commit. No hosted restore or deployment
+has been performed by preparation.

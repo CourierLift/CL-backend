@@ -1,4 +1,6 @@
 from tests.order_helpers import quoted_create  # COMPAT: quote-bound creation
+from tests.image_helpers import photo_bytes
+from hashlib import sha256
 from backend.models import DeliveryProof
 from backend.services.object_storage import get_object_storage
 
@@ -30,11 +32,11 @@ def create_and_claim_in_transit(client, user_factory):
     return customer, courier, order
 
 
-def submit_proof(client, order_id, headers, content=b"proof-image-bytes"):
+def submit_proof(client, order_id, headers, content=None):
     return client.post(
         f"/orders/{order_id}/proof",
         headers=headers,
-        files={"file": ("proof.jpg", content, "image/jpeg")},
+        files={"file": ("proof.jpg", photo_bytes() if content is None else content, "image/jpeg")},
     )
 
 
@@ -80,7 +82,7 @@ def test_proof_must_be_submitted_in_transit(client, user_factory):
 
 def test_proof_is_durable_metadata_and_allows_completion(client, user_factory):
     _, courier, order = create_and_claim_in_transit(client, user_factory)
-    content = b"canonical-proof-image"
+    content = photo_bytes(orientation=6)
 
     uploaded = submit_proof(client, order["id"], courier["headers"], content=content)
 
@@ -89,8 +91,11 @@ def test_proof_is_durable_metadata_and_allows_completion(client, user_factory):
     assert proof["order_id"] == order["id"]
     assert proof["uploaded_by_user_id"] == courier["user"]["id"]
     assert proof["content_type"] == "image/jpeg"
-    assert proof["size_bytes"] == len(content)
-    assert len(proof["sha256"]) == 64
+    saved = client.get(f"/orders/{order['id']}/proof", headers=courier["headers"])
+    assert saved.status_code == 200
+    assert saved.content != content  # Normalized bytes, never the original EXIF file.
+    assert proof["size_bytes"] == len(saved.content)
+    assert proof["sha256"] == sha256(saved.content).hexdigest()
     assert proof["storage_key"].startswith(f"proofs/{order['id']}/")
 
     from backend.database import SessionLocal

@@ -13,15 +13,20 @@ services:
     plan: 0.5c-512mb
     numInstances: 1
     autoDeployTrigger: "off"
-    buildCommand: pip install -r requirements.txt
-    preDeployCommand: alembic upgrade 0005_quotes_idempotency
-    startCommand: uvicorn backend.main:app --host 0.0.0.0 --port $PORT --workers 1
+    buildCommand: pip install -r requirements.txt && python scripts/prepare_release_runtime.py
+    # Migration/import is a separate approved stopped-writer operation. A web
+    # deployment, especially recovery, must never automatically change a DB.
+    preDeployCommand: ""
+    startCommand: python scripts/start_pilot.py
     healthCheckPath: /ready
     envVars:
       - key: PYTHON_VERSION
         value: "3.11.17"
       - key: WEB_CONCURRENCY
         value: "1"
+      - key: CL_RELEASE_SHA
+        # Exact reviewed candidate commit, matched to RENDER_GIT_COMMIT at start.
+        sync: false
       - key: CL_APP_ENV
         value: production
       # Local template change only; applying live settings needs approval.
@@ -34,7 +39,8 @@ services:
         # No fromDatabase/databases block: this template does not authorize provisioning.
         sync: false
       - key: CL_SECRET_KEY
-        # Preserve the approved strong secret; no implicit rotation on Blueprint application.
+        # Explicit approved production rotation only, after encrypted preservation
+        # of the original environment; no implicit Blueprint secret generation.
         sync: false
       - key: CL_FRONTEND_ORIGIN
         value: https://courierlifts.com
@@ -42,6 +48,8 @@ services:
         value: https://courierlifts-web.onrender.com
       - key: CL_OBJECT_STORAGE_BACKEND
         value: s3
+      - key: CL_PROOF_MAX_BYTES
+        value: "10485760"
       - key: CL_S3_BUCKET
         sync: false
       - key: CL_S3_REGION

@@ -1,0 +1,10 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {"Sid": "DenyUnencryptedTransport", "Effect": "Deny", "Principal": "*", "Action": "s3:*", "Resource": ["arn:aws:s3:::__BACKUP_BUCKET__", "arn:aws:s3:::__BACKUP_BUCKET__/*"], "Condition": {"Bool": {"aws:SecureTransport": "false"}}},
+    {"Sid": "RequireConditionalCreate", "Effect": "Deny", "Principal": "*", "Action": "s3:PutObject", "Resource": "arn:aws:s3:::__BACKUP_BUCKET__/courierlifts-backups/v1/*", "Condition": {"Null": {"s3:if-none-match": "true"}}},
+    {"Sid": "RequireReviewedSSE", "Effect": "Deny", "Principal": "*", "Action": "s3:PutObject", "Resource": "arn:aws:s3:::__BACKUP_BUCKET__/courierlifts-backups/v1/*", "Condition": {"StringNotEquals": {"s3:x-amz-server-side-encryption": "AES256"}}},
+    {"Sid": "NeverCreateBackupDeleteMarkers", "Effect": "Deny", "Principal": "*", "Action": "s3:DeleteObject", "Resource": "arn:aws:s3:::__BACKUP_BUCKET__/courierlifts-backups/v1/*"},
+    {"Sid": "NeverAgeDeletePhotoArchives", "Effect": "Deny", "Principal": "*", "Action": "s3:DeleteObjectVersion", "Resource": "arn:aws:s3:::__BACKUP_BUCKET__/courierlifts-backups/v1/photos/*"}
+  ]
+}

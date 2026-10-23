@@ -1,0 +1,13 @@
+{
+  "source_host": "REQUIRED_EXISTING_INTERNAL_POSTGRES_HOST",
+  "source_port": 5432,
+  "source_database": "courierlifts_db",
+  "source_bucket": "REQUIRED_APPROVED_PROOF_BUCKET",
+  "source_owner": "REQUIRED_12_DIGIT_AWS_ACCOUNT",
+  "backup_bucket": "REQUIRED_APPROVED_BACKUP_BUCKET",
+  "backup_owner": "REQUIRED_12_DIGIT_AWS_ACCOUNT",
+  "age_recipient": "REQUIRED_OFFLINE_GENERATED_PUBLIC_AGE_RECIPIENT",
+  "recovery_owner": "REQUIRED_NAMED_RECOVERY_OWNER",
+  "region": "us-west-2",
+  "prefix": "courierlifts-backups/v1"
+}

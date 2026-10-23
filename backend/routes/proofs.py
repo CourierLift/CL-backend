@@ -1,21 +1,72 @@
 """Durable proof-of-delivery upload route."""
 
 from hashlib import sha256
+from functools import partial
+from threading import BoundedSemaphore
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
+from anyio import to_thread
+from fastapi import APIRouter, Depends, File, HTTPException, Request, Response, UploadFile, status
+from fastapi.routing import APIRoute
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from starlette.formparsers import MultiPartException
 
 from ..database import get_db
 from ..deps_jwt import get_current_user
 from ..models import DeliveryProof, Order, OrderStatus, User, UserRole
 from ..schemas import DeliveryProofOut
 from ..services.object_storage import ObjectStorage, get_object_storage
+from ..services.proof_images import MAX_RAW_BYTES, ProofImageError, declared_content_type, normalize_proof
 from ..settings import settings
 
 
-router = APIRouter(tags=["proofs"])
+class BoundedProofRoute(APIRoute):
+    """Bound multipart bytes before FastAPI parses/spools an uploaded file."""
+
+    def get_route_handler(self):
+        handler = super().get_route_handler()
+
+        async def bounded(request: Request):
+            if request.method != "POST":
+                return await handler(request)
+            limit = min(settings.CL_PROOF_MAX_BYTES, MAX_RAW_BYTES) + 64 * 1024
+            too_large = False
+            received = 0
+            declared_length = request.headers.get("content-length")
+            if declared_length is not None:
+                try:
+                    length = int(declared_length)
+                    if length < 0:
+                        raise ValueError
+                except ValueError:
+                    raise HTTPException(status_code=400, detail="Invalid upload content length") from None
+                if length > limit:
+                    raise HTTPException(status_code=413, detail="Proof upload exceeds the configured size limit")
+
+            async def limited_receive():
+                nonlocal received, too_large
+                message = await request.receive()
+                if message["type"] == "http.request":
+                    received += len(message.get("body", b""))
+                    if received > limit:
+                        too_large = True
+                        # Starlette closes partially spooled files on this error.
+                        raise MultiPartException("Proof upload exceeds the configured size limit")
+                return message
+
+            try:
+                return await handler(Request(request.scope, receive=limited_receive))
+            except Exception:
+                if too_large:
+                    raise HTTPException(status_code=413, detail="Proof upload exceeds the configured size limit") from None
+                raise
+
+        return bounded
+
+
+router = APIRouter(tags=["proofs"], route_class=BoundedProofRoute)
+_IMAGE_PROCESSING_SLOT = BoundedSemaphore(1)
 ALLOWED_PROOF_CONTENT_TYPES = {
     "image/jpeg": ".jpg",
     "image/png": ".png",
@@ -81,16 +132,25 @@ async def submit_delivery_proof(
     if order.proof is not None:
         raise HTTPException(status_code=409, detail="Proof has already been submitted")
 
-    content_type = (file.content_type or "").lower()
-    extension = ALLOWED_PROOF_CONTENT_TYPES.get(content_type)
-    if extension is None:
-        raise HTTPException(status_code=415, detail="Proof must be a JPEG, PNG, or WebP image")
-
-    data = await file.read(settings.CL_PROOF_MAX_BYTES + 1)
-    if not data:
-        raise HTTPException(status_code=422, detail="Proof file is empty")
-    if len(data) > settings.CL_PROOF_MAX_BYTES:
-        raise HTTPException(status_code=413, detail="Proof file exceeds the configured size limit")
+    try:
+        content_type = declared_content_type(file.content_type)
+    except ProofImageError as error:
+        raise HTTPException(status_code=error.status_code, detail=error.detail) from error
+    if not _IMAGE_PROCESSING_SLOT.acquire(blocking=False):
+        raise HTTPException(status_code=503, detail="Photo processing is busy. Try again in a moment.",
+                            headers={"Retry-After": "2"})
+    try:
+        raw = await file.read(min(settings.CL_PROOF_MAX_BYTES, MAX_RAW_BYTES) + 1)
+        normalized = await to_thread.run_sync(partial(
+            normalize_proof, raw, content_type, max_input_bytes=settings.CL_PROOF_MAX_BYTES,
+        ))
+    except ProofImageError as error:
+        raise HTTPException(status_code=error.status_code, detail=error.detail) from error
+    finally:
+        _IMAGE_PROCESSING_SLOT.release()
+    data = normalized.data
+    content_type = normalized.content_type
+    extension = normalized.extension
 
     storage_key = f"proofs/{order.id}/{uuid4().hex}{extension}"
     try:

@@ -1,4 +1,5 @@
 from fastapi.testclient import TestClient
+from tests.image_helpers import photo_bytes
 
 from backend.main import app
 from backend.quote_engine import PRICING_ENGINE_VERSION
@@ -132,7 +133,7 @@ def test_full_cross_user_mvp_transaction_survives_fresh_sessions(client):
         proof = courier_device.post(
             f"/orders/{order_id}/proof",
             headers=courier_device_headers,
-            files={"file": ("proof.jpg", b"mvp-delivery-proof", "image/jpeg")},
+            files={"file": ("proof.jpg", photo_bytes(), "image/jpeg")},
         )
         assert proof.status_code == 201, proof.text
 

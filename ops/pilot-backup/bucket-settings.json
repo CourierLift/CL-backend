@@ -1,0 +1,8 @@
+{
+  "VersioningConfiguration": {"Status": "Enabled"},
+  "OwnershipControls": {"Rules": [{"ObjectOwnership": "BucketOwnerEnforced"}]},
+  "PublicAccessBlockConfiguration": {"BlockPublicAcls": true, "IgnorePublicAcls": true, "BlockPublicPolicy": true, "RestrictPublicBuckets": true},
+  "ServerSideEncryptionConfiguration": {"Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}, "BucketKeyEnabled": false}]},
+  "LifecycleConfiguration": {"Rules": []},
+  "CORSRules": []
+}
