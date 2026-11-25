@@ -1,0 +1,174 @@
+{
+  "status": "Preparation preserved; no production deployment or resource creation",
+  "backend_published_head": "5081cdd05e50d1079cdb3e37f2c3ef4f783dd6f2",
+  "frontend_published_head": "4541cf1bec1bdf29f8f5885a8f57b1f2863ca3ff",
+  "latest_changes_published": false,
+  "files": [
+    {
+      "repository": "CL-backend",
+      "path": "scripts/prepare_release_runtime.py",
+      "sha256": "9bd4e0dfa1c42e9542958224b60dbdacd2c992eb1565cc862c12e77bdf46c918"
+    },
+    {
+      "repository": "CL-backend",
+      "path": "scripts/start_pilot.py",
+      "sha256": "2dca3c64242423997bb6d4f90c18ac41daefc4470ef61aaf5d8080884a3735cd"
+    },
+    {
+      "repository": "CL-backend",
+      "path": "scripts/run_recovery_job.py",
+      "sha256": "961fbd760fe4638d6deb17491794d5304245f9339bca20fff7fac062ca4c5ad3"
+    },
+    {
+      "repository": "CL-backend",
+      "path": "scripts/recovery_artifacts.py",
+      "sha256": "3f627b563754e07e4bca4d4cd6385b0b7b3fee75d13257e8c71702d86977b106"
+    },
+    {
+      "repository": "CL-backend",
+      "path": "scripts/recovery_inputs.py",
+      "sha256": "9cda703ddbe03c4cae64fc473aa1d270773aa8b32e0222b42d89a41fd53d66be"
+    },
+    {
+      "repository": "CL-backend",
+      "path": "scripts/restore_durable_checkpoint.py",
+      "sha256": "b869c6444c265d3048053eedbfe4c6dcf17e5cbeab1b2fc2b53e10ca2d1dc50e"
+    },
+    {
+      "repository": "CL-backend",
+      "path": "scripts/seal_legacy_recovery.py",
+      "sha256": "4683994569801acf1e3f855bbdaa71d84b96a165b761852645dab35725c2fb7b"
+    },
+    {
+      "repository": "CL-backend",
+      "path": "tests/test_release_bootstrap.py",
+      "sha256": "93b93d6cce0d6630ffa98e77464638e6712f58d6e1e35415c13dd8078ee128d0"
+    },
+    {
+      "repository": "CL-backend",
+      "path": "tests/test_legacy_runtime_native.py",
+      "sha256": "cfc08ea38190243e629a356548dfb3eb2b2cde8eefd559dea8dfecd57df81b31"
+    },
+    {
+      "repository": "CL-backend",
+      "path": "docs/COORDINATED_PILOT_RELEASE.md",
+      "sha256": "5d2ab9685ae8644b1d056de56057becb4130d1bc366e50878c4ad3a4f57d84f1"
+    },
+    {
+      "repository": "CL-backend",
+      "path": "docs/PILOT_COSTS_AND_ACCOUNTS.md",
+      "sha256": "aee68ec0741fa3ba86e3573a908ab3a3fc771b2692ac548b4fe75c5bcf7ec1ff"
+    },
+    {
+      "repository": "CL-backend",
+      "path": "ops/pilot-backup/pilot_backup.py",
+      "sha256": "b442df10c0043637c12f808b001ccf69769956762c8d00f1ff4d8e0ea16b3b11"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "IPHONE_PHOTO_PREPARATION.md",
+      "sha256": "00104b7b548a227f75bd6d1de5c55c11fe44803797b9017e7c03c235df061b44"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "README.md",
+      "sha256": "a146c00ab18f31e920b4b8bc04a6b8de13b437c1ae569e0e59c9f93ed17c3c3a"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "evidence/iphone-photos-20261022/browser-postgres-initial-runtime-failure.log",
+      "sha256": "14623c4e9ef95c9b13dd663cb5cc230aa5127edf740d286202c81eaf805b4c89"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "evidence/iphone-photos-20261022/browser-postgres-results.json",
+      "sha256": "493fd6d93b94647beb6fa6ad06a46482d00a69a5392746748752fedcd490a7f1"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "evidence/iphone-photos-20261022/browser-postgres.log",
+      "sha256": "0620bbffcc1c71077fa4c0c214dca52d55bb0239e7e184903fccd24c6309b153"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "evidence/iphone-photos-20261022/frontend-check.log",
+      "sha256": "e7d858c1fd4e0f28a4e271f1a888f539901b5e322bfcc61c72977c0c4ade5fb6"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "evidence/iphone-photos-20261022/frontend-tests.log",
+      "sha256": "e0151caa2c7bf13bbbf89f1698e8189a3c4def2395e691bb3c639c56a8fbfae1"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "evidence/iphone-photos-20261022/local-postgres-browser-harness.py",
+      "sha256": "023bb14dd983d76cfbf31f64ab9e5fc16841be33a720953ac67352f31db0437e"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "evidence/iphone-photos-20261022/photo-browser-observations.json",
+      "sha256": "b739f9548d0299a58f5337d4f18012f6f160d95ae54df325683626a96119d0e7"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "evidence/iphone-photos-20261022/postgres-restart-results.json",
+      "sha256": "de25ec0d830c94e11b846b3684a7a0588219863ea4072eb23ad64804bb78769d"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "evidence/iphone-photos-20261022/render-build.log",
+      "sha256": "981030f182852b07b7b43620c63d4b742061eb3387ef1329e67b151faab4c298"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "evidence/iphone-photos-20261022/theme-integrity.json",
+      "sha256": "2c79cf779260dff39b7e5e7f8fc433d9d251d078d113738c1fcb4d3d7e43e3c6"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "qa/browser-pilot.mjs",
+      "sha256": "51b2a66290aef9280674ac3d3d78b4b030c75c1a74fcecbf944f2abc147f9987"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "qa/fixtures/proof-photos.json",
+      "sha256": "e397673c1b8f51c6923ffc85847cefce9941e7545af55626969cd7e6ec77101a"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "qa/proof-photo.test.tsx",
+      "sha256": "ebfd9add1ff6f7536e37c3e38c9c2e4cf342407beceef037829fcede7da4f751"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "src/App.tsx",
+      "sha256": "5284e03262c777d1547a0579fd2f10607fdc2c23e752f053c4d9025b86f18c82"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "src/lib/canonical-api.ts",
+      "sha256": "19d0fd57aa2cf48b2d30def0aff94e3af819e1a14fe6a8cc032c1a808a7b4695"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "src/lib/proof-upload.ts",
+      "sha256": "684808e71ee6d98ea3b5806ea672e06d987abd46e594477506d5fa86f8bc1aa8"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "src/state/canonical-marketplace-store.ts",
+      "sha256": "9e85b41550c9f9f3260fbd0bd08b1dc778f3702019688b9fa2abc15f9755607c"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "tests/proof-upload.test.mjs",
+      "sha256": "ddc0de4628a48f13f447536a9a6d18cbc1986ad0a19c41c373fe5efb0b52524c"
+    },
+    {
+      "repository": "courierlifts-web",
+      "path": "evidence/iphone-photos-20261022/changed-files.json",
+      "sha256": "01dc37620d3d330d5d99f330eea06609ddd68128bac273445f588675b5efbd04"
+    }
+  ],
+  "scope": "Historical checkpoint captured before PR continuation publication; later PR heads and CI are reported separately."
+}

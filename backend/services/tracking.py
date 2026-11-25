@@ -65,6 +65,16 @@ class InMemoryTrackingService:
         if not room:
             self._rooms.pop(order_id, None)
 
+    async def revoke_user(self, user_id: int, version: str) -> None:
+        for order_id, room in list(self._rooms.items()):
+            for socket in list(room):
+                if getattr(socket.state, "account_session", None) == (user_id, version):
+                    self.disconnect(order_id, socket)
+                    try:
+                        await socket.close(code=1008, reason="Session expired")
+                    except (RuntimeError, OSError):
+                        pass
+
     async def send_payload(self, websocket: WebSocket, payload: dict[str, Any]) -> None:
         await websocket.send_json(payload)
 

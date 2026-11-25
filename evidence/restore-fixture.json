@@ -1,0 +1,14 @@
+{
+  "order_id": 1,
+  "quote_id": "q_18838ad26bb7540953851076d1773f20",
+  "price": 20.27,
+  "body": {
+    "origin": "Fictional Midland store",
+    "destination": "Fictional Midland delivery",
+    "vehicle": "car",
+    "weight_kg": 1,
+    "quote_id": "q_18838ad26bb7540953851076d1773f20"
+  },
+  "key": "local-restore-attempt",
+  "photo_sha256": "2502827a89eac69872dccd9ed99aa37ea971d7f82fcfaf80586ff95e1c1fcb98"
+}

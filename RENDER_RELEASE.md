@@ -125,6 +125,15 @@ The installed Render connector can read services/logs, save environment variable
 
 ## Official references
 
+### 13 October 2026 local invite-only candidate (not applied live)
+
+The isolated candidate based on PR #6 adds server-controlled
+`CL_REGISTRATION_MODE=manual-invite` (safe default), gate-enabled tests and
+private operator provisioning. See [INVITE_PILOT.md](INVITE_PILOT.md).
+The local Render template now records this mode. No Render settings, production
+data, credentials, DNS or deployments were changed by this engineering task.
+Apply live configuration only after explicit approval of the exact candidate.
+
 - [Render pricing](https://render.com/pricing)
 - [Static site deployment and dependency installation](https://render.com/docs/static-sites)
 - [Blueprint specification](https://render.com/docs/blueprint-spec)

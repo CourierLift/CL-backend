@@ -1,0 +1,10 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {"Sid": "ReadVersioningAndRegion", "Effect": "Allow", "Action": ["s3:GetBucketVersioning", "s3:GetBucketLocation"], "Resource": ["arn:aws:s3:::__PROOF_BUCKET__", "arn:aws:s3:::__BACKUP_BUCKET__"]},
+    {"Sid": "ReadSourceProofs", "Effect": "Allow", "Action": ["s3:GetObject", "s3:GetObjectVersion"], "Resource": "arn:aws:s3:::__PROOF_BUCKET__/proofs/*"},
+    {"Sid": "DistinguishMissingArchive", "Effect": "Allow", "Action": "s3:ListBucket", "Resource": "arn:aws:s3:::__BACKUP_BUCKET__", "Condition": {"StringLike": {"s3:prefix": ["courierlifts-backups/v1/checkpoints/*", "courierlifts-backups/v1/photos/*"]}}},
+    {"Sid": "ReadAndVerifyArchives", "Effect": "Allow", "Action": ["s3:GetObject", "s3:GetObjectVersion"], "Resource": ["arn:aws:s3:::__BACKUP_BUCKET__/courierlifts-backups/v1/checkpoints/*", "arn:aws:s3:::__BACKUP_BUCKET__/courierlifts-backups/v1/photos/*"]},
+    {"Sid": "CreateOnlyConditionalArchives", "Effect": "Allow", "Action": "s3:PutObject", "Resource": ["arn:aws:s3:::__BACKUP_BUCKET__/courierlifts-backups/v1/checkpoints/*", "arn:aws:s3:::__BACKUP_BUCKET__/courierlifts-backups/v1/photos/*"], "Condition": {"StringEquals": {"s3:if-none-match": "*", "s3:x-amz-server-side-encryption": "AES256"}}}
+  ]
+}

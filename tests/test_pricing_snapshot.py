@@ -1,9 +1,19 @@
+from tests.order_helpers import quoted_create  # COMPAT: quote-bound creation
 import pytest
 
 from backend.quote_engine import PRICING_ENGINE_VERSION
 
 
-def test_address_order_persists_complete_pricing_snapshot(client, user_factory):
+def test_address_order_persists_complete_pricing_snapshot(client, user_factory, monkeypatch):
+    # COMPAT (qa/quote-idempotency): weather/traffic/surge are now server-controlled
+    # pilot settings; client values are ignored (finding B-1). The server is
+    # configured with the same conditions this test always sent, so the snapshot
+    # assertions below are unchanged and still prove the conditions used are frozen.
+    from backend.settings import settings as runtime_settings
+
+    monkeypatch.setattr(runtime_settings, "CL_PILOT_WEATHER", "rain")
+    monkeypatch.setattr(runtime_settings, "CL_PILOT_TRAFFIC", "high")
+    monkeypatch.setattr(runtime_settings, "CL_PILOT_SURGE", 1.4)
     customer = user_factory(role="customer")
     payload = {
         "origin": "100 Main Street",
@@ -21,8 +31,7 @@ def test_address_order_persists_complete_pricing_snapshot(client, user_factory):
         "delivery_requirements": ["fragile"],
     }
 
-    response = client.post(
-        "/orders/create_compat",
+    response = quoted_create(client, "/orders/create_compat",
         json=payload,
         headers=customer["headers"],
     )
@@ -72,8 +81,7 @@ def test_address_order_persists_complete_pricing_snapshot(client, user_factory):
 
 def test_coordinate_order_also_snapshots_authoritative_pricing(client, user_factory):
     customer = user_factory(role="customer")
-    response = client.post(
-        "/orders",
+    response = quoted_create(client, "/orders",
         json={
             "pickup_lat": 30.2672,
             "pickup_lng": -97.7431,
@@ -110,8 +118,7 @@ def test_historical_pricing_snapshot_is_not_recomputed_on_retrieval(
     monkeypatch,
 ):
     customer = user_factory(role="customer")
-    created = client.post(
-        "/orders/create_compat",
+    created = quoted_create(client, "/orders/create_compat",
         json={
             "origin": "100 Main Street",
             "destination": "200 Oak Avenue",

@@ -1,0 +1,241 @@
+{
+  "currency": "USD",
+  "notes": [
+    "14 retained checkpoints is a conservative union upper bound, not 14 guaranteed snapshots every month.",
+    "Freshness reads the single newest complete marker; daily retention verifies all retained checkpoints.",
+    "S3 egress is conservatively charged at the paid rate; actual same-region exemption or remaining AWS free transfer can reduce it.",
+    "Render 5 GB is shared across the existing workspace; default example reserves 1 GB for other responses.",
+    "S3 bytes use GiB; Render browser-egress examples use decimal GB conservatively pending the account meter.",
+    "Age ciphertext is budgeted at 1.01 times plaintext; exact overhead depends on object size.",
+    "No VAT/taxes, paid build overages, failed-run orphans, repeated retries, key rotation, storage growth beyond each scenario, or paid recovery DB is included.",
+    "Photo sizes, view counts, DB dump size and runtimes are planning inputs, not measured hosted values.",
+    "$10/month additional is a planning target, not a spending approval or hard cap."
+  ],
+  "operational_status": "planning only; no resources or credentials created",
+  "rates_file": "ops/pilot-storage/pricing-2026-10-22.json",
+  "reviewed_on": "2026-10-22",
+  "scenarios": [
+    {
+      "additional_to_current_courier_monthly_usd": 2.5640229036395557,
+      "assumptions": {
+        "artifact_base_bytes": 2048,
+        "aws_free_egress_gib_available": 0.0,
+        "backup_minutes_each": 10,
+        "compressed_database_bytes": 104857600,
+        "days": 30,
+        "deliveries_per_month": 500,
+        "encrypted_size_factor": 1.01,
+        "extra_stored_version_gib": 0.0,
+        "freshness_markers_per_run": 1,
+        "manifest_bytes_per_photo": 1024,
+        "marker_bytes_per_photo": 512,
+        "monitor_minutes_each": 1,
+        "monthly_photo_views": 1500,
+        "months_of_history": 1,
+        "name": "500_deliveries_first_month_1MB_photos",
+        "photos_per_delivery": 1,
+        "render_other_monthly_outbound_gb": 1.0,
+        "restore_minutes": 30.0,
+        "retained_checkpoint_upper_bound": 14,
+        "retention_minutes_each": 10,
+        "stored_photo_bytes": 1000000
+      },
+      "average_retained_photos": 250.0,
+      "courier_if_aws_transfer_is_fully_free_usd": 15.374338684636832,
+      "courier_if_render_shared_allowance_is_already_exhausted_usd": 16.089022903639556,
+      "courier_total_monthly_usd": 15.864022903639556,
+      "end_month_retained_photos": 500,
+      "monthly_average_stored_gib": {
+        "encrypted_photo_archive_gib": 0.23515895009040833,
+        "extra_versions_gib": 0.0,
+        "retained_complete_markers_gib": 0.0016956329345703125,
+        "retained_encrypted_dumps_gib": 1.380859375,
+        "retained_encrypted_manifests_gib": 0.0033982086181640627,
+        "runtime_photos_gib": 0.23283064365386963
+      },
+      "monthly_cost_components_usd": {
+        "backup_cron_usd": 1.0,
+        "existing_courier_render_usd": 13.3,
+        "incremental_render_browser_egress_usd": 0.0,
+        "monitor_and_retention_cron_usd": 1.0,
+        "s3_egress_usd": 0.48968421900272363,
+        "s3_head_and_get_requests_usd": 0.016248,
+        "s3_put_and_list_requests_usd": 0.015450000000000002,
+        "s3_storage_usd": 0.04264068463683128
+      },
+      "monthly_s3_outbound_gib": {
+        "daily_encrypted_dump_read_back_gib": 2.958984375,
+        "daily_manifest_and_marker_read_back_gib": 0.010915374755859374,
+        "freshness_and_retention_marker_reads_gib": 0.13807296752929688,
+        "new_encrypted_photos_read_back_gib": 0.47031790018081665,
+        "new_source_photos_archived_gib": 0.46566128730773926,
+        "photo_views_gib": 1.3969838619232178
+      },
+      "optional_single_recovery_drill": {
+        "cost_components_usd": {
+          "compute_usd": 0.0048000000000000004,
+          "extra_recovery_photo_storage_usd_for_one_full_month": 0.010710209608078003,
+          "s3_requests_usd": 0.004118,
+          "s3_transfer_usd_without_free_allowance": 0.13505734198093414
+        },
+        "new_paid_database_or_plan_increase_included": false,
+        "one_time_compute_requests_transfer_usd": 0.14397534198093415,
+        "s3_outbound_gib": 1.5006371331214905
+      },
+      "request_estimates": {
+        "get_and_head": 40620.0,
+        "list": 2000,
+        "put": 1090
+      },
+      "whole_existing_workspace_plus_proposal_usd": 23.114022903639558
+    },
+    {
+      "additional_to_current_courier_monthly_usd": 3.3578398878757945,
+      "assumptions": {
+        "artifact_base_bytes": 2048,
+        "aws_free_egress_gib_available": 0.0,
+        "backup_minutes_each": 10,
+        "compressed_database_bytes": 104857600,
+        "days": 30,
+        "deliveries_per_month": 500,
+        "encrypted_size_factor": 1.01,
+        "extra_stored_version_gib": 0.0,
+        "freshness_markers_per_run": 1,
+        "manifest_bytes_per_photo": 1024,
+        "marker_bytes_per_photo": 512,
+        "monitor_minutes_each": 1,
+        "monthly_photo_views": 1500,
+        "months_of_history": 12,
+        "name": "500_deliveries_month_12_1MB_photos",
+        "photos_per_delivery": 1,
+        "render_other_monthly_outbound_gb": 1.0,
+        "restore_minutes": 30.0,
+        "retained_checkpoint_upper_bound": 14,
+        "retention_minutes_each": 10,
+        "stored_photo_bytes": 1000000
+      },
+      "average_retained_photos": 5750.0,
+      "courier_if_aws_transfer_is_fully_free_usd": 15.877691744465112,
+      "courier_if_render_shared_allowance_is_already_exhausted_usd": 16.882839887875797,
+      "courier_total_monthly_usd": 16.657839887875795,
+      "end_month_retained_photos": 6000,
+      "monthly_average_stored_gib": {
+        "encrypted_photo_archive_gib": 5.4086558520793915,
+        "extra_versions_gib": 0.0,
+        "retained_complete_markers_gib": 0.03841209411621094,
+        "retained_encrypted_dumps_gib": 1.380859375,
+        "retained_encrypted_manifests_gib": 0.07756546020507812,
+        "runtime_photos_gib": 5.3551048040390015
+      },
+      "monthly_cost_components_usd": {
+        "backup_cron_usd": 1.0,
+        "existing_courier_render_usd": 13.3,
+        "incremental_render_browser_egress_usd": 0.0,
+        "monitor_and_retention_cron_usd": 1.0,
+        "s3_egress_usd": 0.7801481434106826,
+        "s3_head_and_get_requests_usd": 0.280248,
+        "s3_put_and_list_requests_usd": 0.015450000000000002,
+        "s3_storage_usd": 0.28199374446511266
+      },
+      "monthly_s3_outbound_gib": {
+        "daily_encrypted_dump_read_back_gib": 2.958984375,
+        "daily_manifest_and_marker_read_back_gib": 0.24852333068847657,
+        "freshness_and_retention_marker_reads_gib": 3.1278419494628906,
+        "new_encrypted_photos_read_back_gib": 0.47031790018081665,
+        "new_source_photos_archived_gib": 0.46566128730773926,
+        "photo_views_gib": 1.3969838619232178
+      },
+      "optional_single_recovery_drill": {
+        "cost_components_usd": {
+          "compute_usd": 0.0048000000000000004,
+          "extra_recovery_photo_storage_usd_for_one_full_month": 0.12852251529693604,
+          "s3_requests_usd": 0.049218,
+          "s3_transfer_usd_without_free_allowance": 1.523394235897064
+        },
+        "new_paid_database_or_plan_increase_included": false,
+        "one_time_compute_requests_transfer_usd": 1.577412235897064,
+        "s3_outbound_gib": 16.92660262107849
+      },
+      "request_estimates": {
+        "get_and_head": 700620.0,
+        "list": 2000,
+        "put": 1090
+      },
+      "whole_existing_workspace_plus_proposal_usd": 23.907839887875795
+    },
+    {
+      "additional_to_current_courier_monthly_usd": 5.4982774599199296,
+      "assumptions": {
+        "artifact_base_bytes": 2048,
+        "aws_free_egress_gib_available": 0.0,
+        "backup_minutes_each": 10,
+        "compressed_database_bytes": 104857600,
+        "days": 30,
+        "deliveries_per_month": 500,
+        "encrypted_size_factor": 1.01,
+        "extra_stored_version_gib": 0.0,
+        "freshness_markers_per_run": 1,
+        "manifest_bytes_per_photo": 1024,
+        "marker_bytes_per_photo": 512,
+        "monitor_minutes_each": 1,
+        "monthly_photo_views": 2000,
+        "months_of_history": 12,
+        "name": "500_deliveries_month_12_4MB_photos_more_views",
+        "photos_per_delivery": 1,
+        "render_other_monthly_outbound_gb": 1.0,
+        "restore_minutes": 30.0,
+        "retained_checkpoint_upper_bound": 14,
+        "retention_minutes_each": 10,
+        "stored_photo_bytes": 4000000
+      },
+      "average_retained_photos": 5750.0,
+      "courier_if_aws_transfer_is_fully_free_usd": 17.220591229737284,
+      "courier_if_render_shared_allowance_is_already_exhausted_usd": 19.39827745991993,
+      "courier_total_monthly_usd": 18.79827745991993,
+      "end_month_retained_photos": 6000,
+      "monthly_average_stored_gib": {
+        "encrypted_photo_archive_gib": 21.634623408317566,
+        "extra_versions_gib": 0.0,
+        "retained_complete_markers_gib": 0.03841209411621094,
+        "retained_encrypted_dumps_gib": 1.380859375,
+        "retained_encrypted_manifests_gib": 0.07756546020507812,
+        "runtime_photos_gib": 21.420419216156006
+      },
+      "monthly_cost_components_usd": {
+        "backup_cron_usd": 1.0,
+        "existing_courier_render_usd": 13.3,
+        "incremental_render_browser_egress_usd": 0.6,
+        "monitor_and_retention_cron_usd": 1.0,
+        "s3_egress_usd": 1.5776862301826478,
+        "s3_head_and_get_requests_usd": 0.280448,
+        "s3_put_and_list_requests_usd": 0.015450000000000002,
+        "s3_storage_usd": 1.0246932297372817
+      },
+      "monthly_s3_outbound_gib": {
+        "daily_encrypted_dump_read_back_gib": 2.958984375,
+        "daily_manifest_and_marker_read_back_gib": 0.24852333068847657,
+        "freshness_and_retention_marker_reads_gib": 3.1278419494628906,
+        "new_encrypted_photos_read_back_gib": 1.8812716007232666,
+        "new_source_photos_archived_gib": 1.862645149230957,
+        "photo_views_gib": 7.450580596923828
+      },
+      "optional_single_recovery_drill": {
+        "cost_components_usd": {
+          "compute_usd": 0.0048000000000000004,
+          "extra_recovery_photo_storage_usd_for_one_full_month": 0.5140900611877441,
+          "s3_requests_usd": 0.049218,
+          "s3_transfer_usd_without_free_allowance": 6.06470937423706
+        },
+        "new_paid_database_or_plan_increase_included": false,
+        "one_time_compute_requests_transfer_usd": 6.11872737423706,
+        "s3_outbound_gib": 67.38565971374511
+      },
+      "request_estimates": {
+        "get_and_head": 701120.0,
+        "list": 2000,
+        "put": 1090
+      },
+      "whole_existing_workspace_plus_proposal_usd": 26.04827745991993
+    }
+  ]
+}

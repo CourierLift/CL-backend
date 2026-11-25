@@ -1,0 +1,22 @@
+{
+  "region": "us-west-2",
+  "storage_class": "STANDARD",
+  "public_access_block": {
+    "BlockPublicAcls": true,
+    "IgnorePublicAcls": true,
+    "BlockPublicPolicy": true,
+    "RestrictPublicBuckets": true
+  },
+  "ownership_controls": {
+    "Rules": [{"ObjectOwnership": "BucketOwnerEnforced"}]
+  },
+  "default_encryption": {
+    "Rules": [{"ApplyServerSideEncryptionByDefault": {"SSEAlgorithm": "AES256"}}]
+  },
+  "versioning": {"Status": "Enabled"},
+  "current_version_expiration": null,
+  "noncurrent_version_expiration": null,
+  "cors_rules": [],
+  "website_hosting": false,
+  "requester_pays": false
+}

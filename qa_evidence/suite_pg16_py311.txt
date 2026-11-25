@@ -1,0 +1,187 @@
+============================= test session starts ==============================
+platform linux -- Python 3.11.17, pytest-8.4.1, pluggy-1.6.0 -- /workspace/venv311/bin/python
+cachedir: .pytest_cache
+rootdir: /workspace/CL-backend-patch
+configfile: pytest.ini
+testpaths: tests
+plugins: anyio-4.15.1
+collecting ... collected 164 items
+
+tests/test_courier_assigned_orders.py::test_assigned_orders_recover_claimed_and_completed_work PASSED
+tests/test_courier_assigned_orders.py::test_assigned_orders_requires_courier_role PASSED
+tests/test_database_urls.py::test_provider_database_url_selects_installed_driver[postgresql] PASSED
+tests/test_database_urls.py::test_provider_database_url_selects_installed_driver[postgres] PASSED
+tests/test_database_urls.py::test_explicit_database_driver_is_preserved[sqlite:///:memory:] PASSED
+tests/test_database_urls.py::test_explicit_database_driver_is_preserved[postgresql+psycopg://user:pass@db.example.com/app] PASSED
+tests/test_database_urls.py::test_provider_url_from_environment_is_normalized PASSED
+tests/test_database_urls.py::test_alembic_accepts_encoded_provider_credentials_without_connecting PASSED
+tests/test_delivery_proof.py::test_delivery_cannot_complete_without_proof PASSED
+tests/test_delivery_proof.py::test_only_assigned_courier_can_submit_proof PASSED
+tests/test_delivery_proof.py::test_proof_must_be_submitted_in_transit PASSED
+tests/test_delivery_proof.py::test_proof_is_durable_metadata_and_allows_completion PASSED
+tests/test_google_routes.py::test_google_travel_mode_maps_existing_transport_modes[foot-WALK] PASSED
+tests/test_google_routes.py::test_google_travel_mode_maps_existing_transport_modes[bike-BICYCLE] PASSED
+tests/test_google_routes.py::test_google_travel_mode_maps_existing_transport_modes[e-bike-BICYCLE] PASSED
+tests/test_google_routes.py::test_google_travel_mode_maps_existing_transport_modes[motorcycle-TWO_WHEELER] PASSED
+tests/test_google_routes.py::test_google_travel_mode_maps_existing_transport_modes[scooter-TWO_WHEELER] PASSED
+tests/test_google_routes.py::test_google_travel_mode_maps_existing_transport_modes[car-DRIVE] PASSED
+tests/test_google_routes.py::test_google_travel_mode_maps_existing_transport_modes[suv-DRIVE] PASSED
+tests/test_google_routes.py::test_google_travel_mode_maps_existing_transport_modes[cargo van-DRIVE] PASSED
+tests/test_google_routes.py::test_google_travel_mode_maps_existing_transport_modes[pickup truck-DRIVE] PASSED
+tests/test_google_routes.py::test_google_travel_mode_maps_existing_transport_modes[box truck-DRIVE] PASSED
+tests/test_google_routes.py::test_google_route_distance_requests_only_distance PASSED
+tests/test_google_routes.py::test_google_route_distance_rejects_provider_failure PASSED
+tests/test_google_routes.py::test_canonical_pricing_accepts_google_distance_without_changing_formula PASSED
+tests/test_health_auth.py::test_health_endpoint PASSED
+tests/test_health_auth.py::test_customer_merchant_and_courier_registration_and_login[customer-extra0] PASSED
+tests/test_health_auth.py::test_customer_merchant_and_courier_registration_and_login[merchant-extra1] PASSED
+tests/test_health_auth.py::test_customer_merchant_and_courier_registration_and_login[courier-extra2] PASSED
+tests/test_health_auth.py::test_invalid_login_is_rejected PASSED
+tests/test_health_auth.py::test_public_registration_rejects_admin_role PASSED
+tests/test_health_auth.py::test_production_rejects_insecure_secret[local-development-only-change-before-deploy] PASSED
+tests/test_health_auth.py::test_production_rejects_insecure_secret[replace-with-a-long-random-secret] PASSED
+tests/test_health_auth.py::test_production_rejects_insecure_secret[too-short] PASSED
+tests/test_health_auth.py::test_production_accepts_hardened_runtime_posture PASSED
+tests/test_health_auth.py::test_production_rejects_sqlite_database PASSED
+tests/test_health_auth.py::test_production_rejects_local_proof_storage PASSED
+tests/test_health_auth.py::test_production_rejects_missing_google_routes_key PASSED
+tests/test_health_auth.py::test_registration_rate_limit_returns_retry_after PASSED
+tests/test_health_auth.py::test_login_rate_limit_returns_retry_after PASSED
+tests/test_launch_readiness.py::test_production_settings_accept_secure_launch_posture PASSED
+tests/test_launch_readiness.py::test_production_settings_reject_unsafe_frontend_origin[http://app.courierlifts.com] PASSED
+tests/test_launch_readiness.py::test_production_settings_reject_unsafe_frontend_origin[http://localhost:5173] PASSED
+tests/test_launch_readiness.py::test_production_settings_reject_unsafe_frontend_origin[https://localhost] PASSED
+tests/test_launch_readiness.py::test_production_settings_reject_unsafe_frontend_origin[https://app.courierlifts.com/path] PASSED
+tests/test_launch_readiness.py::test_production_cors_does_not_include_localhost PASSED
+tests/test_launch_readiness.py::test_development_cors_keeps_localhost PASSED
+tests/test_launch_readiness.py::test_readiness_probe_checks_database PASSED
+tests/test_launch_readiness.py::test_production_address_quote_uses_google_route_distance PASSED
+tests/test_launch_readiness.py::test_production_created_lift_persists_google_distance_snapshot PASSED
+tests/test_launch_readiness.py::test_production_address_pricing_fails_closed_when_google_is_unavailable PASSED
+tests/test_mvp_transaction.py::test_full_cross_user_mvp_transaction_survives_fresh_sessions PASSED
+tests/test_order_detail.py::test_owner_assigned_courier_and_admin_share_authoritative_detail PASSED
+tests/test_order_detail.py::test_unrelated_users_and_unassigned_couriers_cannot_view_order_detail PASSED
+tests/test_order_detail.py::test_missing_order_detail_returns_not_found PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[pending-pending] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[pending-assigned] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[pending-picked_up] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[pending-in_transit] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[pending-delivered] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[pending-canceled] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[assigned-pending] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[assigned-assigned] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[assigned-picked_up] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[assigned-in_transit] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[assigned-delivered] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[assigned-canceled] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[picked_up-pending] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[picked_up-assigned] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[picked_up-picked_up] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[picked_up-in_transit] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[picked_up-delivered] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[picked_up-canceled] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[in_transit-pending] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[in_transit-assigned] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[in_transit-picked_up] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[in_transit-in_transit] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[in_transit-delivered] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[in_transit-canceled] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[delivered-pending] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[delivered-assigned] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[delivered-picked_up] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[delivered-in_transit] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[delivered-delivered] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[delivered-canceled] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[canceled-pending] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[canceled-assigned] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[canceled-picked_up] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[canceled-in_transit] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[canceled-delivered] PASSED
+tests/test_order_state_machine.py::test_transition_matrix_is_explicit_and_exhaustive[canceled-canceled] PASSED
+tests/test_order_state_machine.py::test_transition_table_matches_contract PASSED
+tests/test_postgres_concurrency.py::test_simultaneous_claims_assign_exactly_one_courier PASSED
+tests/test_pricing_snapshot.py::test_address_order_persists_complete_pricing_snapshot PASSED
+tests/test_pricing_snapshot.py::test_coordinate_order_also_snapshots_authoritative_pricing PASSED
+tests/test_pricing_snapshot.py::test_historical_pricing_snapshot_is_not_recomputed_on_retrieval PASSED
+tests/test_qa_concurrent_create.py::test_concurrent_same_key_create QA concurrent_create: {"codes": [200, 201, 200, 200, 200], "db_order_rows": 1}
+PASSED
+tests/test_qa_round2.py::test_price_inputs_client_controlled QA prices_by_client_input: {"baseline": 25.09, "surge3": 25.09, "weather_bogus": 25.09, "traffic_bogus": 25.09, "traffic_low": 25.09}
+PASSED
+tests/test_qa_round2.py::test_quote_not_bound_to_order QA quote_vs_order: {"quoted": 25.09, "created_status": 201, "order_price": 25.09}
+PASSED
+tests/test_qa_round2.py::test_retry_creates_duplicate_records QA orders_after_same_key_retry: 1
+PASSED
+tests/test_qa_round2.py::test_permissions_and_proof_gate QA permission_matrix: {"other_customer_detail": 403, "other_courier_detail": 403, "no_token_detail": 401, "other_courier_status": 403, "customer_status": 403, "skip_to_delivered": 409, "pickup": 200, "pickup_repeat": 409, "transit": 200, "deliver_without_proof": 409, "customer_proof": 403, "other_courier_proof": 403, "bad_type_proof": 415, "proof": 201, "proof_repeat": 409, "deliver": 200, "deliver_repeat": 409, "courier_history_has_delivered": true}
+PASSED
+tests/test_quote_idempotency.py::test_unauthenticated_estimate_is_display_only PASSED
+tests/test_quote_idempotency.py::test_authenticated_estimate_returns_orderable_quote PASSED
+tests/test_quote_idempotency.py::test_courier_estimate_gets_no_orderable_quote PASSED
+tests/test_quote_idempotency.py::test_client_conditions_do_not_change_price PASSED
+tests/test_quote_idempotency.py::test_order_price_and_snapshot_are_copied_from_quote PASSED
+tests/test_quote_idempotency.py::test_coordinate_route_binds_coordinate_quote PASSED
+tests/test_quote_idempotency.py::test_quote_kind_cannot_cross_routes PASSED
+tests/test_quote_idempotency.py::test_other_customers_quote_is_not_found PASSED
+tests/test_quote_idempotency.py::test_other_customer_gets_404_even_after_quote_used PASSED
+tests/test_quote_idempotency.py::test_changed_details_are_rejected PASSED
+tests/test_quote_idempotency.py::test_expired_unused_quote_is_rejected PASSED
+tests/test_quote_idempotency.py::test_reused_quote_with_different_key_conflicts_with_order_id PASSED
+tests/test_quote_idempotency.py::test_same_key_same_payload_returns_original PASSED
+tests/test_quote_idempotency.py::test_same_key_different_payload_conflicts PASSED
+tests/test_quote_idempotency.py::test_keys_are_scoped_per_customer PASSED
+tests/test_quote_idempotency.py::test_replay_after_quote_expiry_returns_original PASSED
+tests/test_quote_idempotency.py::test_idempotency_key_required[None] PASSED
+tests/test_quote_idempotency.py::test_idempotency_key_required[] PASSED
+tests/test_quote_idempotency.py::test_idempotency_key_required[short] PASSED
+tests/test_quote_idempotency.py::test_idempotency_key_required[xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx] PASSED
+tests/test_quote_idempotency.py::test_idempotency_key_required[has space key] PASSED
+tests/test_quote_idempotency.py::test_both_create_routes_are_protected[/orders/create_compat-body0] PASSED
+tests/test_quote_idempotency.py::test_both_create_routes_are_protected[/orders-body1] PASSED
+tests/test_quote_idempotency.py::test_error_shape_for_validation_auth_and_role PASSED
+tests/test_quote_idempotency.py::test_cors_preflight_allows_idempotency_key PASSED
+tests/test_quote_idempotency.py::test_idempotency_survives_restart PASSED
+tests/test_quote_idempotency.py::test_concurrent_same_key_creates_exactly_one_row PASSED
+tests/test_quote_idempotency.py::test_concurrent_different_keys_same_quote_one_row PASSED
+tests/test_quote_idempotency.py::test_sequential_retries_create_one_row PASSED
+tests/test_quote_idempotency.py::test_every_creator_role_gets_orderable_quote_and_idempotent_order[/quote/estimate-/orders/create_compat-body0-price_total-customer] PASSED
+tests/test_quote_idempotency.py::test_every_creator_role_gets_orderable_quote_and_idempotent_order[/quote/estimate-/orders/create_compat-body0-price_total-merchant] PASSED
+tests/test_quote_idempotency.py::test_every_creator_role_gets_orderable_quote_and_idempotent_order[/quote-/orders-body1-price-customer] PASSED
+tests/test_quote_idempotency.py::test_every_creator_role_gets_orderable_quote_and_idempotent_order[/quote-/orders-body1-price-merchant] PASSED
+tests/test_quote_idempotency.py::test_coordinate_route_rejects_changed_expired_and_reused_key PASSED
+tests/test_quote_idempotency.py::test_concurrent_same_key_coordinate_route_one_row PASSED
+tests/test_quotes_orders.py::test_address_quote_generation_is_explicitly_estimated PASSED
+tests/test_quotes_orders.py::test_quote_supports_required_transportation_modes[foot] PASSED
+tests/test_quotes_orders.py::test_quote_supports_required_transportation_modes[bike] PASSED
+tests/test_quotes_orders.py::test_quote_supports_required_transportation_modes[cargo bike] PASSED
+tests/test_quotes_orders.py::test_quote_supports_required_transportation_modes[e-bike] PASSED
+tests/test_quotes_orders.py::test_quote_supports_required_transportation_modes[scooter] PASSED
+tests/test_quotes_orders.py::test_quote_supports_required_transportation_modes[motorcycle] PASSED
+tests/test_quotes_orders.py::test_quote_supports_required_transportation_modes[car] PASSED
+tests/test_quotes_orders.py::test_quote_supports_required_transportation_modes[EV] PASSED
+tests/test_quotes_orders.py::test_quote_supports_required_transportation_modes[SUV] PASSED
+tests/test_quotes_orders.py::test_quote_supports_required_transportation_modes[van] PASSED
+tests/test_quotes_orders.py::test_quote_supports_required_transportation_modes[light truck] PASSED
+tests/test_quotes_orders.py::test_quote_supports_required_transportation_modes[box truck] PASSED
+tests/test_quotes_orders.py::test_quote_engine_accounts_for_required_pricing_factors PASSED
+tests/test_quotes_orders.py::test_order_creation_and_customer_history PASSED
+tests/test_quotes_orders.py::test_eligible_courier_sees_and_claims_order PASSED
+tests/test_quotes_orders.py::test_ineligible_courier_is_filtered_and_rejected PASSED
+tests/test_quotes_orders.py::test_eligibility_enforces_dimensions_and_delivery_requirements PASSED
+tests/test_quotes_orders.py::test_double_claim_is_prevented PASSED
+tests/test_quotes_orders.py::test_courier_cannot_update_another_couriers_order PASSED
+tests/test_quotes_orders.py::test_legal_status_progression_and_terminal_state PASSED
+tests/test_quotes_orders.py::test_customer_or_merchant_ownership_is_enforced PASSED
+tests/test_rewards_tracking.py::test_normal_users_cannot_create_reward_events PASSED
+tests/test_rewards_tracking.py::test_websocket_connection_and_marketplace_event_shapes PASSED
+tests/test_rewards_tracking.py::test_websocket_rejects_missing_token PASSED
+tests/test_rewards_tracking.py::test_websocket_rejects_unapproved_browser_origin PASSED
+tests/test_rewards_tracking.py::test_websocket_rejects_unrelated_user_and_unassigned_courier PASSED
+tests/test_rewards_tracking.py::test_websocket_rejects_client_messages PASSED
+
+=============================== warnings summary ===============================
+../venv311/lib/python3.11/site-packages/starlette/testclient.py:51
+  /workspace/venv311/lib/python3.11/site-packages/starlette/testclient.py:51: DeprecationWarning: The anyio.abc.BlockingPortal alias is deprecated, use anyio.from_thread.BlockingPortal instead.
+    _PortalFactoryType = Callable[[], AbstractContextManager[anyio.abc.BlockingPortal]]
+
+-- Docs: https://docs.pytest.org/en/stable/how-to/capture-warnings.html
+================== 164 passed, 1 warning in 78.00s (0:01:18) ===================
+exit=0

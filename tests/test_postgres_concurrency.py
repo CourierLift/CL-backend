@@ -1,3 +1,4 @@
+from tests.order_helpers import quoted_create  # COMPAT: quote-bound creation
 from concurrent.futures import ThreadPoolExecutor
 from threading import Barrier
 
@@ -15,8 +16,7 @@ pytestmark = pytest.mark.skipif(
 
 
 def create_delivery(client, headers, suffix: int):
-    response = client.post(
-        "/orders/create_compat",
+    response = quoted_create(client, "/orders/create_compat",
         headers=headers,
         json={
             "origin": f"100 Main Street #{suffix}",

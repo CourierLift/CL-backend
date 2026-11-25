@@ -1,3 +1,5 @@
+from tests.order_helpers import quoted_create  # COMPAT: quote-bound creation
+from tests.image_helpers import photo_bytes
 def create_delivery(client, headers, **overrides):
     payload = {
         "origin": "100 Main Street",
@@ -11,7 +13,7 @@ def create_delivery(client, headers, **overrides):
         "height_in": 6,
     }
     payload.update(overrides)
-    return client.post("/orders/create_compat", json=payload, headers=headers)
+    return quoted_create(client, "/orders/create_compat", json=payload, headers=headers)
 
 
 def test_assigned_orders_recover_claimed_and_completed_work(client, user_factory):
@@ -42,7 +44,7 @@ def test_assigned_orders_recover_claimed_and_completed_work(client, user_factory
     proof = client.post(
         f"/orders/{first['id']}/proof",
         headers=courier["headers"],
-        files={"file": ("proof.jpg", b"proof", "image/jpeg")},
+        files={"file": ("proof.jpg", photo_bytes(), "image/jpeg")},
     )
     assert proof.status_code == 201
     client.patch(

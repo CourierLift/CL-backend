@@ -20,6 +20,7 @@ class StoredObject:
 class ObjectStorage(Protocol):
     def put(self, key: str, data: bytes, content_type: str) -> StoredObject: ...
     def delete(self, key: str) -> None: ...
+    def read(self, key: str, max_bytes: int) -> bytes: ...
 
 
 class LocalObjectStorage:
@@ -44,6 +45,10 @@ class LocalObjectStorage:
         if path.exists():
             path.unlink()
 
+    def read(self, key: str, max_bytes: int) -> bytes:
+        with self._path(key).open("rb") as source:
+            return source.read(max_bytes + 1)
+
 
 class S3ObjectStorage:
     def __init__(self, bucket: str, region: str, endpoint_url: str | None) -> None:
@@ -67,6 +72,13 @@ class S3ObjectStorage:
 
     def delete(self, key: str) -> None:
         self.client.delete_object(Bucket=self.bucket, Key=key)
+
+    def read(self, key: str, max_bytes: int) -> bytes:
+        body = self.client.get_object(Bucket=self.bucket, Key=key)["Body"]
+        try:
+            return body.read(max_bytes + 1)
+        finally:
+            body.close()
 
 
 @lru_cache(maxsize=1)

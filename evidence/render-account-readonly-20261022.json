@@ -1,0 +1,100 @@
+{
+  "status": "read-only account observations; no production or billing changes",
+  "review_date": "2026-10-22",
+  "observation_provenance": "Parent release-preparation session's authenticated Render service, billing and notifications UI observations; sanitized here without additional account queries.",
+  "workspace": {
+    "id": "tea-d20l5i7gi27c73coe8a0",
+    "display_name": "My Workspace",
+    "selected_connection": "Primary",
+    "selected_connection_id": "link_6abc05d80bc48191810e8fa0f99a5906",
+    "plan": "Hobby",
+    "workspace_fee_usd_month": 0,
+    "included_outbound_gb_month": 5,
+    "included_pipeline_minutes_month": 500,
+    "observed_usage": {
+      "outbound_mb": 20,
+      "pipeline_minutes": 6,
+      "services_used": 7,
+      "service_limit": 25,
+      "custom_domains_used": 1,
+      "custom_domain_limit": 2
+    }
+  },
+  "courier_resources": [
+    {
+      "name": "CL-backend",
+      "id": "srv-d2tbhgmuk2gs73cneer0",
+      "region": "oregon",
+      "compute": "0.5 CPU / 512 MB",
+      "instances": 1,
+      "persistent_disk": false,
+      "observed_hourly_usd": 0.0094,
+      "approximate_full_month_usd": 7,
+      "live_commit": "7580a9ca95f0d0795b6362e0b638181359f1b3c5",
+      "live_deploy_id": "dep-db8ductckfvc73btjntg"
+    },
+    {
+      "name": "courierlifts-db",
+      "id": "dpg-dauihb893c1s73ecnihg-a",
+      "region": "oregon",
+      "database_name": "courierlifts_db",
+      "postgres_major": 16,
+      "compute": "0.1 CPU / 256 MB",
+      "observed_compute_hourly_usd": 0.0081,
+      "approximate_compute_full_month_usd": 6,
+      "allocated_storage_gb": 1,
+      "observed_storage_hourly_usd": 0.0004,
+      "approximate_storage_full_month_usd": 0.30,
+      "storage_autoscaling": false,
+      "external_ip_allowlist": [],
+      "hobby_pitr_days_shown": 3,
+      "exports_shown": 0,
+      "sql_inspection_repeated": false
+    },
+    {
+      "name": "courierlifts-web",
+      "id": "srv-d25d0k49c44c73d6msb0",
+      "type": "static_site",
+      "approximate_full_month_usd": 0,
+      "live_commit": "39bdc934e005359c2e114b67afb94e0545b9b34f",
+      "live_deploy_id": "dep-dbcdihbrjlhs73bl4ne0"
+    }
+  ],
+  "billing_summary": {
+    "observed_month_to_date_usd": 8.91,
+    "observed_current_month_projection_usd": 14.90,
+    "projection_is_partial_month_account_estimate_not_steady_state": true,
+    "courier_approximate_steady_month_usd": 13.30,
+    "other_existing_navglass_compute_usd": 7,
+    "other_existing_navglass_disk_gb": 1,
+    "other_existing_navglass_disk_usd": 0.25,
+    "whole_workspace_approximate_steady_month_before_proposal_usd": 20.55,
+    "other_free_or_suspended_services_current_compute_usd": 0,
+    "navglass_changes": false,
+    "tax_and_usage_overages_included": false
+  },
+  "notifications": {
+    "destination_shown": "Email",
+    "default_service_notifications_shown": "Only failure notifications",
+    "delivery_tested": false,
+    "new_cron_service_overrides_verified": false,
+    "recovery_owner_proposed": "Will (Courier Lifts owner)",
+    "recovery_owner_accepted": false
+  },
+  "storage_account_discovery": {
+    "existing_render_cron_services_found": 0,
+    "suitable_installed_general_s3_account_connector_found": false,
+    "aws_account_or_payer_verified": false,
+    "aws_bucket_inventory_verified": false,
+    "aws_login_attempted": false,
+    "aws_credentials_created": false,
+    "aws_resources_created": false,
+    "public_aws_pricing_only": true
+  },
+  "limits": [
+    "Rounded dashboard hourly figures are not used to extrapolate an exact monthly invoice.",
+    "The observed PostgreSQL storage billing row is included even where public plan wording can suggest included storage.",
+    "No payment-card details, secret values, user rows or database connection passwords are recorded.",
+    "An exact AWS account, available bucket names and paid-resource approval remain required before provisioning."
+  ]
+}

@@ -1,3 +1,5 @@
+from tests.order_helpers import quoted_create  # COMPAT: quote-bound creation
+from tests.image_helpers import photo_bytes
 from datetime import datetime
 
 import pytest
@@ -5,8 +7,7 @@ from starlette.websockets import WebSocketDisconnect
 
 
 def create_delivery(client, headers):
-    return client.post(
-        "/orders/create_compat",
+    return quoted_create(client, "/orders/create_compat",
         headers=headers,
         json={
             "origin": "100 Main Street",
@@ -108,7 +109,7 @@ def test_websocket_connection_and_marketplace_event_shapes(client, user_factory)
             proof_response = client.post(
                 f"/orders/{order_id}/proof",
                 headers=courier["headers"],
-                files={"file": ("proof.jpg", b"proof", "image/jpeg")},
+                files={"file": ("proof.jpg", photo_bytes(), "image/jpeg")},
             )
             assert proof_response.status_code == 201
 

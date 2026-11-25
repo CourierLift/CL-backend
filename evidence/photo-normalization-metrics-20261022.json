@@ -1,0 +1,60 @@
+{
+  "date": "2026-10-22",
+  "scope": "Independent local process per case; synthetic uniform pixels; full backend import; not a hosted memory or latency guarantee",
+  "results": [
+    {
+      "format": "JPEG",
+      "input_dimensions": [
+        4032,
+        3024
+      ],
+      "synthetic_uniform_pixels": true,
+      "pillow": "13.0.0",
+      "input_bytes": 191177,
+      "output_bytes": 18718,
+      "saved_dimensions": [
+        1536,
+        2048
+      ],
+      "normalization_seconds": 0.31,
+      "app_import_peak_rss_MiB": 78.0,
+      "process_peak_rss_MiB": 172.4
+    },
+    {
+      "format": "PNG",
+      "input_dimensions": [
+        4000,
+        4000
+      ],
+      "synthetic_uniform_pixels": true,
+      "pillow": "13.0.0",
+      "input_bytes": 70822,
+      "output_bytes": 24862,
+      "saved_dimensions": [
+        2048,
+        2048
+      ],
+      "normalization_seconds": 0.754,
+      "app_import_peak_rss_MiB": 78.7,
+      "process_peak_rss_MiB": 249.3
+    },
+    {
+      "format": "WEBP",
+      "input_dimensions": [
+        4032,
+        3024
+      ],
+      "synthetic_uniform_pixels": true,
+      "pillow": "13.0.0",
+      "input_bytes": 21812,
+      "output_bytes": 18718,
+      "saved_dimensions": [
+        1536,
+        2048
+      ],
+      "normalization_seconds": 0.352,
+      "app_import_peak_rss_MiB": 78.6,
+      "process_peak_rss_MiB": 268.2
+    }
+  ]
+}

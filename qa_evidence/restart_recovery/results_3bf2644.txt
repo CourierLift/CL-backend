@@ -1,0 +1,20 @@
+Tested commit: 3bf2644 (qa/quote-idempotency). Python 3.11.17, uvicorn, local PostgreSQL 16.15 disposable DB (cl_restart), migrated 0004 -> 0005.
+Command: PY_BIN=python3.11 UVICORN_BIN=uvicorn CL_DATABASE_URL=postgresql://clqa:<redacted>@127.0.0.1:5433/cl_restart PGURL=<same> qa_evidence/restart_recovery/run_restart_recovery.sh
+Result: original order id 1, price 39.26 unchanged after SIGTERM and after SIGKILL restarts; same-key retry 200 with order 1; new key 409 quote_already_used; orders rows 1 at every step.
+--- raw output ---
+Restart recovery test, 2026-10-12 16:27:29 CDT, commit 3bf2644, Python 3.11.17, PostgreSQL 16.15 (Debian 16.15-1.pgdg13+2), fresh disposable DB migrated to 0005
+server start 1, pid 335828
+register 200
+quote 200 q_cef45d58f2079276abb36642e3d5c8e6 39.26
+create 201 order 1 price 39.26
+orders rows: 1
+process 1 stopped by SIGTERM
+server start 2, pid 335866
+retry same key 200 order 1 price 39.26 | same as original: True
+new key, same quote 409 quote_already_used order_id 1
+orders rows: 1
+process 2 stopped by SIGKILL
+server start 3, pid 335903
+retry same key 200 order 1 price 39.26 | same as original: True
+new key, same quote 409 quote_already_used order_id 1
+orders rows: 1

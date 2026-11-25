@@ -1,0 +1,144 @@
++ /workspace/venv311/bin/alembic heads
+0005_quotes_idempotency (head)
++ /workspace/venv311/bin/alembic upgrade head
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_initial_schema, Initial Courier Lifts relational schema.
+INFO  [alembic.runtime.migration] Running upgrade 0001_initial_schema -> 0002_add_in_transit_status, Add authoritative in-transit delivery state.
+INFO  [alembic.runtime.migration] Running upgrade 0002_add_in_transit_status -> 0003_delivery_proofs, Add durable delivery proof records.
+INFO  [alembic.runtime.migration] Running upgrade 0003_delivery_proofs -> 0004_pricing_snapshot, Persist immutable pricing snapshots on orders.
+INFO  [alembic.runtime.migration] Running upgrade 0004_pricing_snapshot -> 0005_quotes_idempotency, Server-issued quotes and idempotent order creation.
++ /workspace/venv311/bin/alembic current
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+0005_quotes_idempotency (head)
++ psql postgresql://clqa:<redacted>@127.0.0.1:5433/cl_patch_migrate -c '\d orders' -c '\d quotes'
+                                                Table "public.orders"
+         Column         |           Type           | Collation | Nullable |                 Default                  
+------------------------+--------------------------+-----------+----------+------------------------------------------
+ id                     | integer                  |           | not null | nextval('orders_id_seq'::regclass)
+ user_id                | integer                  |           | not null | 
+ assigned_courier_id    | integer                  |           |          | 
+ origin                 | character varying        |           |          | 
+ destination            | character varying        |           |          | 
+ pickup_lat             | double precision         |           |          | 
+ pickup_lng             | double precision         |           |          | 
+ dropoff_lat            | double precision         |           |          | 
+ dropoff_lng            | double precision         |           |          | 
+ vehicle                | character varying        |           | not null | 
+ item_type              | character varying        |           | not null | 
+ delivery_requirements  | json                     |           | not null | 
+ quantity               | integer                  |           | not null | 
+ weight_lb              | double precision         |           | not null | 
+ length_in              | double precision         |           | not null | 
+ width_in               | double precision         |           | not null | 
+ height_in              | double precision         |           | not null | 
+ price                  | double precision         |           | not null | 
+ eta_min                | integer                  |           | not null | 
+ distance_miles         | double precision         |           | not null | 
+ distance_estimated     | boolean                  |           | not null | 
+ distance_source        | character varying        |           | not null | 
+ weather                | character varying        |           | not null | 
+ traffic                | character varying        |           | not null | 
+ surge_multiplier       | double precision         |           | not null | 
+ status                 | orderstatus              |           | not null | 
+ created_at             | timestamp with time zone |           | not null | 
+ assigned_at            | timestamp with time zone |           |          | 
+ completed_at           | timestamp with time zone |           |          | 
+ pricing_engine_version | character varying        |           | not null | 'legacy_pre_snapshot'::character varying
+ pricing_snapshot       | json                     |           | not null | '{}'::json
+ quote_id               | character varying(64)    |           |          | 
+ idempotency_key        | character varying(128)   |           |          | 
+ request_hash           | character varying(64)    |           |          | 
+Indexes:
+    "orders_pkey" PRIMARY KEY, btree (id)
+    "ix_orders_assigned_courier_id" btree (assigned_courier_id)
+    "ix_orders_id" btree (id)
+    "ix_orders_status" btree (status)
+    "ix_orders_user_id" btree (user_id)
+    "uq_orders_quote_id" UNIQUE CONSTRAINT, btree (quote_id)
+    "uq_orders_user_idempotency_key" UNIQUE CONSTRAINT, btree (user_id, idempotency_key)
+Check constraints:
+    "ck_orders_quantity_positive" CHECK (quantity > 0)
+    "ck_orders_weight_nonnegative" CHECK (weight_lb >= 0::double precision)
+Foreign-key constraints:
+    "fk_orders_quote_id" FOREIGN KEY (quote_id) REFERENCES quotes(id)
+    "orders_assigned_courier_id_fkey" FOREIGN KEY (assigned_courier_id) REFERENCES users(id)
+    "orders_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id)
+Referenced by:
+    TABLE "delivery_proofs" CONSTRAINT "delivery_proofs_order_id_fkey" FOREIGN KEY (order_id) REFERENCES orders(id)
+    TABLE "reward_events" CONSTRAINT "reward_events_order_id_fkey" FOREIGN KEY (order_id) REFERENCES orders(id)
+
+                               Table "public.quotes"
+         Column         |           Type           | Collation | Nullable | Default 
+------------------------+--------------------------+-----------+----------+---------
+ id                     | character varying(64)    |           | not null | 
+ user_id                | integer                  |           | not null | 
+ kind                   | character varying(16)    |           | not null | 
+ details_hash           | character varying(64)    |           | not null | 
+ pricing_conditions     | json                     |           | not null | 
+ pricing_snapshot       | json                     |           | not null | 
+ price_total            | double precision         |           | not null | 
+ eta_min                | integer                  |           | not null | 
+ distance_miles         | double precision         |           | not null | 
+ distance_estimated     | boolean                  |           | not null | 
+ distance_source        | character varying        |           | not null | 
+ tier                   | character varying        |           | not null | 
+ pricing_engine_version | character varying        |           | not null | 
+ created_at             | timestamp with time zone |           | not null | 
+ expires_at             | timestamp with time zone |           | not null | 
+Indexes:
+    "quotes_pkey" PRIMARY KEY, btree (id)
+    "ix_quotes_user_id" btree (user_id)
+Foreign-key constraints:
+    "quotes_user_id_fkey" FOREIGN KEY (user_id) REFERENCES users(id)
+Referenced by:
+    TABLE "orders" CONSTRAINT "fk_orders_quote_id" FOREIGN KEY (quote_id) REFERENCES quotes(id)
+
++ /workspace/venv311/bin/alembic downgrade base
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running downgrade 0005_quotes_idempotency -> 0004_pricing_snapshot, Server-issued quotes and idempotent order creation.
+INFO  [alembic.runtime.migration] Running downgrade 0004_pricing_snapshot -> 0003_delivery_proofs, Persist immutable pricing snapshots on orders.
+INFO  [alembic.runtime.migration] Running downgrade 0003_delivery_proofs -> 0002_add_in_transit_status, Add durable delivery proof records.
+INFO  [alembic.runtime.migration] Running downgrade 0002_add_in_transit_status -> 0001_initial_schema, Add authoritative in-transit delivery state.
+INFO  [alembic.runtime.migration] Running downgrade 0001_initial_schema -> , Initial Courier Lifts relational schema.
++ /workspace/venv311/bin/alembic current
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
++ psql postgresql://clqa:<redacted>@127.0.0.1:5433/cl_patch_migrate -c '\dt'
+            List of relations
+ Schema |      Name       | Type  | Owner 
+--------+-----------------+-------+-------
+ public | alembic_version | table | clqa
+(1 row)
+
++ /workspace/venv311/bin/alembic upgrade head
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade  -> 0001_initial_schema, Initial Courier Lifts relational schema.
+INFO  [alembic.runtime.migration] Running upgrade 0001_initial_schema -> 0002_add_in_transit_status, Add authoritative in-transit delivery state.
+INFO  [alembic.runtime.migration] Running upgrade 0002_add_in_transit_status -> 0003_delivery_proofs, Add durable delivery proof records.
+INFO  [alembic.runtime.migration] Running upgrade 0003_delivery_proofs -> 0004_pricing_snapshot, Persist immutable pricing snapshots on orders.
+INFO  [alembic.runtime.migration] Running upgrade 0004_pricing_snapshot -> 0005_quotes_idempotency, Server-issued quotes and idempotent order creation.
++ /workspace/venv311/bin/alembic current
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+0005_quotes_idempotency (head)
++ /workspace/venv311/bin/alembic downgrade 0004_pricing_snapshot
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running downgrade 0005_quotes_idempotency -> 0004_pricing_snapshot, Server-issued quotes and idempotent order creation.
++ /workspace/venv311/bin/alembic current
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+0004_pricing_snapshot
++ /workspace/venv311/bin/alembic upgrade head
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+INFO  [alembic.runtime.migration] Running upgrade 0004_pricing_snapshot -> 0005_quotes_idempotency, Server-issued quotes and idempotent order creation.
++ /workspace/venv311/bin/alembic current
+INFO  [alembic.runtime.migration] Context impl PostgresqlImpl.
+INFO  [alembic.runtime.migration] Will assume transactional DDL.
+0005_quotes_idempotency (head)
+exit=0

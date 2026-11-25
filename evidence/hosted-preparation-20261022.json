@@ -1,0 +1,85 @@
+{
+  "date_utc": "2026-10-22",
+  "scope": "Read-only observation; no migration, credential change, deployment, resource creation, or production data write",
+  "workspace_id": "tea-d20l5i7gi27c73coe8a0",
+  "backend": {
+    "service_id": "srv-d2tbhgmuk2gs73cneer0",
+    "deploy_id": "dep-db8ductckfvc73btjntg",
+    "commit": "7580a9ca95f0d0795b6362e0b638181359f1b3c5",
+    "branch": "main",
+    "auto_deploy": "on_commit",
+    "compute_plan": "0.5c-512mb",
+    "region": "oregon",
+    "persistent_disk": false,
+    "maintenance_mode": false,
+    "app_environment": "development",
+    "database_scheme": "sqlite",
+    "cl_database_url_configured": false,
+    "legacy_database_url_scheme": "sqlite",
+    "sqlite_path": "/opt/render/project/src/courier_lifts.db",
+    "sqlite_bytes": 81920,
+    "sqlite_wal_bytes": 0,
+    "sqlite_quick_check": ["ok"],
+    "sqlite_alembic_versions": [],
+    "sqlite_rows": {
+      "courier_profiles": 0,
+      "delivery_proofs": 0,
+      "orders": 0,
+      "reward_events": 0,
+      "users": 0
+    },
+    "storage_backend": "local",
+    "storage_path": "/opt/render/project/src/object_storage",
+    "local_proof_files": 0,
+    "local_proof_bytes": 0,
+    "s3_bucket_configured": false,
+    "signing_secret_configured": true,
+    "signing_secret_value_read": false,
+    "frontend_origin": "https://courierlifts-web.onrender.com"
+  },
+  "postgres": {
+    "id": "dpg-dauihb893c1s73ecnihg-a",
+    "database": "courierlifts_db",
+    "region": "oregon",
+    "major_version": "16",
+    "compute_plan": "0.1c-256mb",
+    "storage_gb": 1,
+    "storage_autoscaling": false,
+    "external_access": "blocked",
+    "accepted_prior_readonly_inspection": {
+      "internal_connection_ok": true,
+      "transaction_read_only": "on",
+      "public_tables": [],
+      "public_columns": [],
+      "alembic_versions": []
+    },
+    "credential_entry_repeated": false,
+    "recovery_page_observed": "3-day point-in-time recovery and Create export controls available",
+    "logical_exports_visible": 0,
+    "hosted_restore_executed": false
+  },
+  "frontend": {
+    "service_id": "srv-d25d0k49c44c73d6msb0",
+    "type": "static_site",
+    "deploy_id": "dep-dbcdihbrjlhs73bl4ne0",
+    "commit": "39bdc934e005359c2e114b67afb94e0545b9b34f",
+    "branch": "launch-readiness",
+    "auto_deploy": "off",
+    "build_command": "npm ci && npm run check && npm run build",
+    "publish_path": "dist"
+  },
+  "public_http_observations": [
+    {"url": "https://courierlifts.com", "status": 200, "redirected": false},
+    {"url": "https://courierlifts-web.onrender.com", "status": 200, "redirected": false},
+    {"url": "https://www.courierlifts.com", "status": 503},
+    {"url": "https://cl-backend-ppv1.onrender.com/health", "status": 200, "body": {"ok": true, "env": "development"}},
+    {"url": "https://cl-backend-ppv1.onrender.com/ready", "status": 404},
+    {"url": "https://cl-backend-ppv1.onrender.com/pilot-info", "status": 404}
+  ],
+  "limits": [
+    "An inventory is not a frozen production backup; repeat inventory under maintenance and export a verified source bundle before any deploy.",
+    "The PostgreSQL inspection covered the public schema, not every schema in the cluster.",
+    "Available provider recovery controls are not evidence of a successful hosted restore.",
+    "The www hostname observation is an existing condition; no DNS or domain configuration was changed."
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "InspectVersioningForVerifiedMigration",
+      "Effect": "Allow",
+      "Action": "s3:GetBucketVersioning",
+      "Resource": "arn:aws:s3:::__BUCKET_NAME__"
+    },
+    {
+      "Sid": "CopyAndVerifyFrozenLegacyProofs",
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:GetObjectVersion"],
+      "Resource": "arn:aws:s3:::__BUCKET_NAME__/proofs/*"
+    }
+  ]
+}

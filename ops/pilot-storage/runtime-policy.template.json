@@ -1,0 +1,17 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "ReadWritePilotProofsOnly",
+      "Effect": "Allow",
+      "Action": ["s3:GetObject", "s3:PutObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::__BUCKET_NAME__/proofs/*"
+    },
+    {
+      "Sid": "NeverPermanentlyDeleteProofVersions",
+      "Effect": "Deny",
+      "Action": "s3:DeleteObjectVersion",
+      "Resource": "arn:aws:s3:::__BUCKET_NAME__/proofs/*"
+    }
+  ]
+}

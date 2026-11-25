@@ -1,0 +1,64 @@
+{
+  "date_utc": "2026-10-22",
+  "scope": "Isolated synthetic backup and restore validation; no hosted resource reads, credentials, writes or deployments",
+  "test_files": [
+    "tests/test_pilot_backup.py",
+    "tests/test_pilot_backup_native.py"
+  ],
+  "result": {
+    "passed": 60,
+    "failed": 0,
+    "skipped": 0,
+    "offline_cases": 55,
+    "native_cases": 5,
+    "duration_seconds": 7.08,
+    "warnings": [
+      "Upstream starlette.testclient references the deprecated anyio.abc.BlockingPortal alias"
+    ]
+  },
+  "execution_environment": {
+    "python": "3.11.17",
+    "postgres_major": 16,
+    "age": "1.3.2",
+    "postgres_scope": "Loopback-only, unique pilot_backup_* databases, removed by fixture cleanup",
+    "object_storage": "Injected in-memory S3 test double; no AWS endpoint",
+    "identities": "Ephemeral synthetic age identities; no production credential generation",
+    "socket_access": "Tests require the local loopback socket capability; a sandbox-only attempt passed 43 cases and had 4 connection setup errors before the successful permitted rerun"
+  },
+  "verified": [
+    "A completion marker is written only after encrypted payload verification",
+    "All object references pin key, VersionId, SHA-256 and size",
+    "Restore uses the independently approved completion marker version even if the current object changes",
+    "Missing or mismatched marker checksum fails before restoring the database",
+    "Concurrent database writes are excluded consistently from both exported-snapshot digests and pg_dump",
+    "A later committed PostgreSQL write is preserved by a second fresh checkpoint and restored into another empty database",
+    "An unchanged proof photo is downloaded from the source only once across successive checkpoints",
+    "Real age encryption and authenticated decryption preserve synthetic bytes and reject corrupted ciphertext",
+    "Every restored application table digest, proof relationship, saved photo hash and usable ID sequence matches the checkpoint",
+    "Corrupted photo ciphertext prevents database restoration and success receipt creation",
+    "Live source database name, existing recovery paths, symlink ancestors, occupied targets and PostgreSQL connection overrides are refused",
+    "Read-only PostgreSQL backup role successfully dumps the dataset and cannot update an order even after requesting a read-write transaction",
+    "Missing, stale or future completion timestamps fail the freshness/retention checks",
+    "Hourly freshness fetches exactly one newest completion marker after paginated listing, and fails without fallback if that marker is malformed, stale or bound to another ID",
+    "Backup source port must match explicit configuration before any object-store call",
+    "Actual source and backup bucket locations must match us-west-2; a different or null region is refused before payload access or writes",
+    "Retention selects the newest checkpoint in 7 distinct UTC days, 4 ISO weeks and 3 calendar months",
+    "Retention removes only expired checkpoint marker/dump/manifest versions and never deletes encrypted photo archives",
+    "Missing retained payloads stop pruning before any deletion",
+    "Failure exit codes do not expose driver exception secrets or customer row values",
+    "IAM preparation separates runtime photos, archive writer, monitor, retention and recovery read permissions"
+  ],
+  "not_verified": [
+    "Actual AWS account, IAM policy authorization, bucket policy enforcement or cloud object durability",
+    "Render scheduled execution, cron environment or hosted resource limits",
+    "Actual failure and missed-backup notification delivery",
+    "A hosted scheduled checkpoint restored into an approved empty PostgreSQL target and private recovery photo bucket",
+    "Production-size memory use or recovery duration",
+    "Physical iPhone photo capture, selection or history retrieval"
+  ],
+  "operational": false,
+  "recovery_owner": {
+    "proposed": "Will (Courier Lifts owner)",
+    "accepted": false
+  }
+}
