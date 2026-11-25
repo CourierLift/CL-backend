@@ -1,12 +1,13 @@
 """Private operator workflow: python -m backend.provision_invite --help.
 
-Requires an explicitly selected database and a terminal with hidden password
-entry. Does not issue invitation tokens, send messages, or create admins.
+Requires an explicitly selected database. Use a hidden password prompt or
+--web-setup to let an approved recipient set their own first password.
 """
 
 import argparse
 import getpass
 import os
+import secrets
 import sys
 import warnings
 
@@ -21,6 +22,8 @@ class SafeParser(argparse.ArgumentParser):
 def main(argv=None) -> int:
     parser = SafeParser(description=__doc__)
     parser.add_argument("--email", required=True)
+    parser.add_argument("--web-setup", action="store_true",
+                        help="Approve the account for first-password setup through its email address.")
     parser.add_argument("--role", choices=["customer", "merchant", "courier"], required=True)
     parser.add_argument("--transportation-mode", default=None)
     parser.add_argument("--capability", action="append", default=[])
@@ -30,18 +33,25 @@ def main(argv=None) -> int:
     if not os.environ.get("CL_DATABASE_URL", "").strip():
         print("Refusing to provision without an explicit CL_DATABASE_URL.", file=sys.stderr)
         return 2
-    if not sys.stdin.isatty():
+    if not args.web_setup and not sys.stdin.isatty():
         print("A terminal is required for hidden password entry; no piped passwords.", file=sys.stderr)
         return 2
     try:
-        # GetPassWarning means echo-free input is unavailable; fail closed.
-        with warnings.catch_warnings():
-            warnings.simplefilter("error", getpass.GetPassWarning)
-            password = getpass.getpass("Pilot account password (hidden): ")
-            confirmation = getpass.getpass("Confirm password: ")
-        if password != confirmation:
-            print("Passwords do not match; no account created.", file=sys.stderr)
-            return 2
+        if args.web_setup:
+            from .services.password_recovery import mail_configured
+            if not mail_configured():
+                print("Configure pilot recovery email before web setup.", file=sys.stderr)
+                return 2
+            password = secrets.token_urlsafe(40)
+        else:
+            # GetPassWarning means echo-free input is unavailable; fail closed.
+            with warnings.catch_warnings():
+                warnings.simplefilter("error", getpass.GetPassWarning)
+                password = getpass.getpass("Pilot account password (hidden): ")
+                confirmation = getpass.getpass("Confirm password: ")
+            if password != confirmation:
+                print("Passwords do not match; no account created.", file=sys.stderr)
+                return 2
         from .schemas import RegisterIn
         from .settings import settings
         if settings.CL_REGISTRATION_MODE != "manual-invite":
@@ -68,6 +78,9 @@ def main(argv=None) -> int:
         )
         with SessionLocal() as db:
             user = provision_account(db, payload)
+            if args.web_setup:
+                print("Pilot account approved. The recipient can choose Set up invited account on the sign-in page.")
+                return 0
             print(f"Provisioned pilot account #{user.id} ({user.role.value}). No invitation sent.")
         return 0
     except (EOFError, KeyboardInterrupt, getpass.GetPassWarning):

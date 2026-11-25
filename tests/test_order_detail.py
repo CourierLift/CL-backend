@@ -31,7 +31,7 @@ def create_admin_headers():
         db.add(admin)
         db.commit()
         db.refresh(admin)
-        token = create_access_token(admin.id, admin.role.value)
+        token = create_access_token(admin.id, admin.role.value, admin.password_hash)
     return {"Authorization": f"Bearer {token}"}
 
 

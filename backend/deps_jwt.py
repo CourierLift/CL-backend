@@ -4,7 +4,7 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy.orm import Session
 
-from .auth_jwt import decode_access_token
+from .auth_jwt import decode_session, session_version
 from .database import get_db
 from .models import User
 
@@ -17,7 +17,7 @@ def get_current_user(
     db: Session = Depends(get_db),
 ) -> User:
     try:
-        user_id, _role = decode_access_token(token)
+        user_id, _role, version = decode_session(token)
     except ValueError as exc:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -26,10 +26,10 @@ def get_current_user(
         ) from exc
 
     user = db.get(User, user_id)
-    if user is None:
+    if user is None or version != session_version(user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found",
+            detail="Invalid or expired token",
             headers={"WWW-Authenticate": "Bearer"},
         )
     return user

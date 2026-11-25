@@ -2,6 +2,8 @@
 
 from datetime import datetime, timedelta, timezone
 
+import hmac
+
 import bcrypt
 from jose import JWTError, jwt
 
@@ -26,13 +28,18 @@ def verify_password(plain: str, hashed: str) -> bool:
         return False
 
 
-def create_access_token(user_id: int, role: str) -> str:
+def session_version(password_hash: str) -> str:
+    return hmac.digest(settings.CL_SECRET_KEY.encode(), b"cl:session:v1:" + password_hash.encode(), "sha256").hex()
+
+
+def create_access_token(user_id: int, role: str, password_hash: str) -> str:
     now = datetime.now(timezone.utc)
     expires_at = now + timedelta(minutes=settings.CL_ACCESS_TOKEN_EXPIRE_MINUTES)
     payload = {
         "sub": str(user_id),
         "user_id": user_id,
         "role": role,
+        "pv": session_version(password_hash),
         "iat": now,
         "exp": expires_at,
     }
@@ -43,7 +50,7 @@ def create_access_token(user_id: int, role: str) -> str:
     )
 
 
-def decode_access_token(token: str) -> tuple[int, str]:
+def decode_session(token: str) -> tuple[int, str, str]:
     try:
         data = jwt.decode(
             token,
@@ -53,6 +60,14 @@ def decode_access_token(token: str) -> tuple[int, str]:
         raw_user_id = data.get("sub") or data.get("user_id")
         if raw_user_id is None:
             raise JWTError("Missing user id")
-        return int(raw_user_id), str(data.get("role", "customer"))
+        version = data.get("pv")
+        if not isinstance(version, str) or len(version) != 64 or not version.isascii():
+            raise JWTError("Session must sign in again")
+        return int(raw_user_id), str(data.get("role", "customer")), version
     except (JWTError, TypeError, ValueError) as exc:
         raise ValueError("Invalid or expired token") from exc
+
+
+def decode_access_token(token: str) -> tuple[int, str]:
+    user_id, role, _version = decode_session(token)
+    return user_id, role

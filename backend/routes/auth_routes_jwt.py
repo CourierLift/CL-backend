@@ -64,6 +64,6 @@ def login(
         )
 
     return TokenOut(
-        access_token=create_access_token(user.id, user.role.value),
+        access_token=create_access_token(user.id, user.role.value, user.password_hash),
         expires_in=settings.CL_ACCESS_TOKEN_EXPIRE_MINUTES * 60,
     )

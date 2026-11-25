@@ -608,3 +608,34 @@ applicable approval is recorded, all production/resource/credential operations
 above remain blocked. After an approved release, report exact passed evidence
 and any failed or unperformed gate; open invitations only when every required
 gate has actually passed.
+
+### Pilot password email and Will’s first account
+
+Configure password mail only on the compatible backend after the frozen live
+backup restores successfully. Use a verified Amazon SES sender in the selected
+region. For this small pilot, verifying a single sender mailbox by email can
+avoid changes to domain DNS. In the SES sandbox, verify each pilot recipient
+in the same region before testing. Use a dedicated send-only IAM identity
+restricted to the approved sender, independently of the proof and backup identities.
+Set `CL_PASSWORD_MAIL_FROM`, `CL_PASSWORD_MAIL_REGION`, `CL_PASSWORD_MAIL_AWS_ACCESS_KEY_ID`
+and `CL_PASSWORD_MAIL_AWS_SECRET_ACCESS_KEY` in Render’s protected environment.
+Keep AWS debug logging disabled. Deliver a code to the operator’s actual
+mailbox and check receipt before enabling invitations. Missing configuration
+returns a service-unavailable message. The service log records delivery failure
+without including addresses, codes or AWS exceptions.
+
+Set `CL_FRONTEND_ORIGIN=https://courierlifts.com` and
+`CL_ADDITIONAL_FRONTEND_ORIGINS=https://courierlifts-web.onrender.com`. Verify
+the browser login and password endpoints from the apex after deployment.
+The coordinated release requires existing sessions to sign in again.
+
+After cutover, check the intended email and existing role privately. An existing
+non-admin account can use **Forgot password?**. To approve a new sender for the
+pilot, run `python -m backend.provision_invite --web-setup --email ADDRESS --role customer`
+against the explicitly selected pilot database. A duplicate exits without
+changing the account. For a courier, use its actual role and measured capacities.
+The invited person chooses **Set up invited account** and requests a code.
+Unapproved addresses receive the same website response and no account. Admin
+accounts use private operator recovery. Codes expire in 15 minutes. Password
+confirmation consumes outstanding codes, revokes prior access tokens and closes
+the account’s old tracking connections on the single pilot worker.
