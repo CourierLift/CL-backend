@@ -6,7 +6,7 @@ from typing import Literal
 from urllib.parse import urlparse
 
 from dotenv import load_dotenv
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
 
 
 load_dotenv(override=False)
@@ -71,6 +71,10 @@ class Settings(BaseModel):
     CL_GOOGLE_MAPS_API_KEY: str | None = Field(
         default_factory=lambda: os.getenv("CL_GOOGLE_MAPS_API_KEY")
     )
+    CL_PASSWORD_MAIL_FROM: EmailStr | None = Field(default_factory=lambda: os.getenv("CL_PASSWORD_MAIL_FROM") or None)
+    CL_PASSWORD_MAIL_REGION: str | None = Field(default_factory=lambda: os.getenv("CL_PASSWORD_MAIL_REGION"))
+    CL_PASSWORD_MAIL_AWS_ACCESS_KEY_ID: str | None = Field(default_factory=lambda: os.getenv("CL_PASSWORD_MAIL_AWS_ACCESS_KEY_ID"), repr=False)
+    CL_PASSWORD_MAIL_AWS_SECRET_ACCESS_KEY: str | None = Field(default_factory=lambda: os.getenv("CL_PASSWORD_MAIL_AWS_SECRET_ACCESS_KEY"), repr=False)
     CL_AUTH_REGISTER_RATE_LIMIT: int = Field(
         default_factory=lambda: int(
             os.getenv("CL_AUTH_REGISTER_RATE_LIMIT", "10")

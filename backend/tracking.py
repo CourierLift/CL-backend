@@ -6,7 +6,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, Query, WebSocket, WebSocketDisconnect
 from sqlalchemy.orm import Session
 
-from .auth_jwt import decode_access_token
+from .auth_jwt import decode_session, session_version
 from .database import get_db
 from .models import Order, User, UserRole
 from .services.tracking import tracking_service
@@ -85,18 +85,25 @@ async def ws_track(
         return
 
     try:
-        user_id, _token_role = decode_access_token(token)
+        user_id, _token_role, version = decode_session(token)
     except ValueError:
         await _reject(websocket, "Invalid or expired token")
         return
 
     user = db.get(User, user_id)
     order = db.get(Order, order_id)
-    if user is None or order is None or not _may_track_order(user, order):
+    if user is None or version != session_version(user.password_hash) or order is None or not _may_track_order(user, order):
         await _reject(websocket, "Not authorized for this order")
         return
 
+    websocket.state.account_session = (user_id, version)
     await tracking_service.connect(order_id, websocket, subprotocol="bearer")
+    # A reset can land during the asynchronous handshake.
+    db.refresh(user)
+    if version != session_version(user.password_hash):
+        tracking_service.disconnect(order_id, websocket)
+        await _reject(websocket, "Session expired")
+        return
     await tracking_service.send_payload(
         websocket,
         _connection_event("connection.ready", order_id, user.role.value),

@@ -12,6 +12,7 @@ from .database import Base, engine
 from .orders import create_router as order_create_router
 from .orders import router as orders_router
 from .routes.auth_routes_jwt import router as auth_router
+from .routes.password_recovery import router as password_router
 from .routes.courier_orders import router as courier_orders_router
 from .routes.order_detail import router as order_detail_router
 from .routes.proofs import router as proofs_router
@@ -94,6 +95,7 @@ def ready() -> dict[str, object]:
 
 
 app.include_router(auth_router)
+app.include_router(password_router)
 app.include_router(rewards_router)
 app.include_router(order_create_router)
 app.include_router(orders_router)

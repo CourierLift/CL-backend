@@ -11,6 +11,8 @@ class InMemoryRateLimiter:
     def __init__(self) -> None:
         self._attempts: dict[tuple[str, str], deque[float]] = defaultdict(deque)
         self._lock = Lock()
+        self._expires: dict[tuple[str, str], float] = {}
+        self._next_sweep = 0.0
 
     def check(
         self,
@@ -25,6 +27,11 @@ class InMemoryRateLimiter:
         key = (scope, identity)
 
         with self._lock:
+            if now >= self._next_sweep:
+                for expired in [item for item, deadline in self._expires.items() if deadline <= now]:
+                    self._attempts.pop(expired, None)
+                    self._expires.pop(expired, None)
+                self._next_sweep = now + 60
             attempts = self._attempts[key]
             while attempts and attempts[0] <= cutoff:
                 attempts.popleft()
@@ -37,10 +44,13 @@ class InMemoryRateLimiter:
                     headers={"Retry-After": str(retry_after)},
                 )
             attempts.append(now)
+            self._expires[key] = now + window_seconds
 
     def reset(self) -> None:
         with self._lock:
             self._attempts.clear()
+            self._expires.clear()
+            self._next_sweep = 0.0
 
 
 def request_identity(request: Request) -> str:
