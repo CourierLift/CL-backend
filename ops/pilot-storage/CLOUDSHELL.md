@@ -1,0 +1,7 @@
+# Initial AWS setup for the Courier Lifts pilot
+
+Run `python3 scripts/bootstrap_pilot_aws.py --apply YOUR_SENDER_EMAIL` in AWS CloudShell from a checked-out copy of this release. Use the AWS account intended for the pilot. CloudShell supplies the signed-in identity. The script prints the AWS account number and runs in Oregon (`us-west-2`). Without `--apply` it prints the CloudFormation template offline.
+
+The command creates a protected CloudFormation stack with three private, versioned, encrypted S3 buckets for proof photos, backups, and recovery tests. It derives their names from the AWS account number and region. The backup bucket also applies the existing restrictions on overwrites, encryption and deletion. The script reuses a matching stack on retry and stops on a different template or a failed stack. It does not import existing standalone buckets or update a stack.
+
+After the stack completes, the script checks the individual Amazon SES email identity and requests verification only if the identity is missing. Follow the link AWS sends to that mailbox. A pending existing identity is reported without triggering another email. The sender address and AWS account number do not enter the repository. The script creates no IAM credentials. The application and its backup jobs still need their scoped permissions, configuration, and hosted recovery tests before deployment. Starting the app and sending pilot invitations are separate steps.
