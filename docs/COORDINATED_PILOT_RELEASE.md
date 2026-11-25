@@ -262,7 +262,22 @@ keep secret values and customer rows out of it.
    Seal bundle plus environment with `scripts/seal_legacy_recovery.py`; store the
    encrypted artifact in the operator-only backup prefix and independently record
    bucket/owner/region/key/VersionId/SHA-256/size. Retrieve/decrypt/verify it
-   off-host. An empty inventory still requires this complete step.
+   off-host. On the recovery machine retrieve the **recorded VersionId** with
+   the approved reader, then use the following command offline. Supply a
+   private copy of the upload reference and the independently retained sealing
+   receipt (both mode 0600). Set `TMPDIR` to private storage with room for the
+   ciphertext, decrypted archive, extracted bundle and restored database/photos.
+
+   ```sh
+   python scripts/verify_legacy_readback.py --ciphertext downloaded.age \
+     --object-reference reference.json --seal-receipt seal.json --identity /private/offline-identity.txt
+   ```
+
+   A successful exit verifies the downloaded bytes and rehearses a SQLite/photo
+   restore using age v1.3.2. Retain the output with the separate S3 retrieval
+   record. The offline command cannot verify IAM, the live writer freeze or
+   which version a remote client requested. An empty inventory still requires
+   this complete step.
 5. **Copy legacy proofs unchanged.** Use the approved temporary migration
    identity and `ops/pilot-storage/proof_objects.py upload` with the frozen bundle,
    exact bucket/owner and `--allow-object-writes`. Preserve keys, MIME, sizes and

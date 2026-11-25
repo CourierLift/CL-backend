@@ -19,6 +19,7 @@ from scripts import seal_legacy_recovery as seal
 from scripts import start_pilot as start
 from scripts import start_sqlite_rollback as rollback
 from scripts import recovery_inputs
+from scripts import verify_legacy_readback as readback
 from scripts import run_recovery_job as job_runner
 from test_pilot_backup import backup, FakeS3, PHOTO, PROOF
 from test_pilot_backup_native import real_age, native_pair
@@ -64,6 +65,57 @@ def test_download_detects_damaged_encrypted_artifact(tmp_path):
     client.objects[(ref["bucket"], ref["key"], ref["version_id"])]["data"] = b"x" * ref["size_bytes"]
     with pytest.raises(cutover.CutoverError, match="checksum"):
         artifacts.download(client, ref, tmp_path / "bad")
+
+
+def test_offline_readback_restores_frozen_order_and_all_photos(source_factory, real_age, tmp_path, monkeypatch):
+    age, identity, recipient = real_age
+    database, photos = source_factory()
+    bundle = tmp_path / "bundle"
+    cutover.snapshot(database, photos, bundle)
+    environment = tmp_path / "original.json"
+    environment.write_text(json.dumps({"CL_SECRET_KEY": "synthetic-offline-signing-key"}))
+    environment.chmod(0o600)
+    cipher = tmp_path / "frozen.age"
+    receipt = seal.seal(bundle, environment, recipient, cipher, age_binary=age.binary)
+    client = FakeS3()
+    ref = pinned(client, cipher.read_bytes())
+    downloaded = tmp_path / "downloaded.age"
+    artifacts.download(client, ref, downloaded)
+    private_work = tmp_path / "recovery-machine"
+    private_work.mkdir(mode=0o700)
+    monkeypatch.setattr(readback.tempfile, "tempdir", str(private_work))
+    result = readback.verify(downloaded, ref, receipt, identity, age_binary=age.binary)
+    assert result == {"kind": "cl-offline-legacy-restore", "ciphertext_sha256": receipt["sha256"],
+                      "sqlite_restored": True, "order_count": 2, "proof_file_count": 2}
+    assert not list(private_work.iterdir())
+    ref_path, seal_path = tmp_path / "reference.json", tmp_path / "seal.json"
+    for path, record in ((ref_path, ref), (seal_path, receipt)):
+        path.write_text(json.dumps(record))
+        path.chmod(0o600)
+    command = [sys.executable, readback.__file__, "--ciphertext", downloaded, "--object-reference", ref_path,
+               "--seal-receipt", seal_path, "--identity", identity]
+    env = {**os.environ, "PATH": str(Path(age.binary).parent) + os.pathsep + os.environ["PATH"],
+           "TMPDIR": str(private_work)}
+    run = subprocess.run(command, capture_output=True, text=True, env=env, check=True)
+    assert json.loads(run.stdout) == result
+    assert not list(private_work.iterdir())
+    with pytest.raises(cutover.CutoverError, match="bundle"):
+        readback.verify(downloaded, ref, {**receipt, "bundle_manifest_sha256": "0" * 64},
+                        identity, age_binary=age.binary)
+    assert not list(private_work.iterdir())
+
+
+def test_offline_readback_rejects_corrupt_or_unrelated_download_before_decryption(tmp_path):
+    data = b"synthetic ciphertext"
+    ref = pinned(FakeS3(), data)
+    receipt = {"kind": "cl-encrypted-legacy-checkpoint", "legacy_commit": rollback.EXPECTED_OLD_COMMIT,
+               "sha256": ref["sha256"], "size_bytes": len(data)}
+    downloaded = tmp_path / "downloaded.age"
+    downloaded.write_bytes(b"x" * len(data))
+    with pytest.raises(cutover.CutoverError, match="checksum"):
+        readback.verify(downloaded, ref, receipt, tmp_path / "no-key")
+    with pytest.raises(cutover.CutoverError, match="Sealing receipt"):
+        readback.verify(downloaded, ref, {**receipt, "legacy_commit": "0" * 40}, tmp_path / "no-key")
 
 
 @pytest.mark.parametrize("kind,name", [
