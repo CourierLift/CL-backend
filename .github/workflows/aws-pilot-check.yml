@@ -1,0 +1,62 @@
+name: Courier Lifts AWS access check
+on:
+  push:
+    branches: [ops/courier-pilot-aws]
+  workflow_dispatch:
+
+permissions: {}
+jobs:
+  verify:
+    if: github.repository_id == '1051003659' && github.ref == 'refs/heads/ops/courier-pilot-aws'
+    runs-on: ubuntu-latest
+    timeout-minutes: 4
+    permissions:
+      id-token: write
+    env:
+      AWS_REGION: us-west-2
+      PILOT_ROLE: ${{ secrets.COURIERLIFTS_PILOT_VERIFIER_ARN }}
+    steps:
+      - name: Identify this workflow for the AWS trust policy
+        shell: python
+        run: |
+          import base64, json, os, urllib.request
+          from urllib.parse import urlencode
+          url = os.environ['ACTIONS_ID_TOKEN_REQUEST_URL'] + '&' + urlencode({'audience': 'sts.amazonaws.com'})
+          headers = {'Authorization': 'Bearer ' + os.environ['ACTIONS_ID_TOKEN_REQUEST_TOKEN']}
+          with urllib.request.urlopen(urllib.request.Request(url, headers=headers), timeout=15) as response:
+              payload = json.load(response)['value'].split('.')[1]
+          claims = json.loads(base64.urlsafe_b64decode(payload + '=' * (-len(payload) % 4)))
+          assert claims['iss'] == 'https://token.actions.githubusercontent.com'
+          assert claims['aud'] == 'sts.amazonaws.com' and claims['repository_id'] == '1051003659'
+          assert claims['repository_owner_id'] == '220552329'
+          assert claims['ref'] == 'refs/heads/ops/courier-pilot-aws'
+          print('AWS trust subject:', claims['sub'])
+          if not os.environ.get('PILOT_ROLE'):
+              print('AWS access pending. Only the GitHub identity was verified.')
+      - name: Use short-lived AWS credentials
+        if: env.PILOT_ROLE != ''
+        uses: aws-actions/configure-aws-credentials@45666896f5d8e0f10ae255413f3a4cdd03bdc8f5
+        with:
+          aws-region: us-west-2
+          role-to-assume: ${{ env.PILOT_ROLE }}
+          role-session-name: courier-pilot-status
+          role-duration-seconds: 900
+          mask-aws-account-id: true
+          retry-max-attempts: 2
+      - name: Check pilot setup
+        if: env.PILOT_ROLE != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          export AWS_PAGER=''
+          account=$(aws sts get-caller-identity --query Account --output text)
+          echo "Narrow AWS role assumed."
+          stack=$(aws cloudformation describe-stacks --stack-name courierlifts-pilot-storage-v1 --query 'Stacks[0].StackStatus' --output text)
+          test "$stack" = CREATE_COMPLETE
+          for purpose in proofs backups recovery; do
+            bucket="courierlifts-pilot-$purpose-$account-us-west-2"
+            aws s3api get-bucket-versioning --bucket "$bucket" --expected-bucket-owner "$account" | jq -e '.Status == "Enabled"' >/dev/null
+            aws s3api get-public-access-block --bucket "$bucket" --expected-bucket-owner "$account" | jq -e '.PublicAccessBlockConfiguration | .BlockPublicAcls and .IgnorePublicAcls and .BlockPublicPolicy and .RestrictPublicBuckets' >/dev/null
+            aws s3api get-bucket-encryption --bucket "$bucket" --expected-bucket-owner "$account" | jq -e '.ServerSideEncryptionConfiguration.Rules | any(.ApplyServerSideEncryptionByDefault.SSEAlgorithm == "AES256")' >/dev/null
+            echo "$purpose bucket is private, versioned and encrypted."
+          done
