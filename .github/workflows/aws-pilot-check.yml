@@ -60,3 +60,7 @@ jobs:
             aws s3api get-bucket-encryption --bucket "$bucket" --expected-bucket-owner "$account" | jq -e '.ServerSideEncryptionConfiguration.Rules | any(.ApplyServerSideEncryptionByDefault.SSEAlgorithm == "AES256")' >/dev/null
             echo "$purpose bucket is private, versioned and encrypted."
           done
+          sender=$(aws cloudformation describe-stacks --stack-name courierlifts-pilot-verifier-v1 --query "Stacks[0].Parameters[?ParameterKey=='PilotSender'].ParameterValue | [0]" --output text)
+          test -n "$sender" && test "$sender" != None
+          verified=$(aws sesv2 get-email-identity --email-identity "$sender" --query 'VerifiedForSendingStatus' --output text)
+          echo "Password email sender verified: $verified"
