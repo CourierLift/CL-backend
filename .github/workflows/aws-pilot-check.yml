@@ -32,7 +32,7 @@ jobs:
           assert claims['ref'] == 'refs/heads/ops/courier-pilot-aws'
           print('AWS trust subject:', claims['sub'])
           if not os.environ.get('PILOT_ROLE'):
-              print('AWS access pending. Only the GitHub identity was verified.')
+              raise SystemExit('AWS verifier role is missing; storage and email were not verified.')
       - name: Use short-lived AWS credentials
         if: env.PILOT_ROLE != ''
         uses: aws-actions/configure-aws-credentials@45666896f5d8e0f10ae255413f3a4cdd03bdc8f5
@@ -43,24 +43,32 @@ jobs:
           role-duration-seconds: 900
           mask-aws-account-id: true
           retry-max-attempts: 2
-      - name: Check pilot setup
+      - name: Verify the three existing pilot buckets in place
         if: env.PILOT_ROLE != ''
         shell: bash
         run: |
           set -euo pipefail
           export AWS_PAGER=''
           account=$(aws sts get-caller-identity --query Account --output text)
-          echo "Narrow AWS role assumed."
-          stack=$(aws cloudformation describe-stacks --stack-name courierlifts-pilot-storage-v1 --query 'Stacks[0].StackStatus' --output text)
-          test "$stack" = CREATE_COMPLETE
+          # Pin the approved account without publishing its number in this workflow.
+          [[ $(printf '%s' "$account" | sha256sum | cut -d' ' -f1) == '0c1cd7cd574f8ca2db5c944758697862db2756376e8ba7769a1a1f24cc5eb035' ]] || { echo 'Unexpected AWS account.'; exit 1; }
+          # Existing buckets were approved for use in place. No storage stack or import is required.
           for purpose in proofs backups recovery; do
             bucket="courierlifts-pilot-$purpose-$account-us-west-2"
-            aws s3api get-bucket-versioning --bucket "$bucket" --expected-bucket-owner "$account" | jq -e '.Status == "Enabled"' >/dev/null
-            aws s3api get-public-access-block --bucket "$bucket" --expected-bucket-owner "$account" | jq -e '.PublicAccessBlockConfiguration | .BlockPublicAcls and .IgnorePublicAcls and .BlockPublicPolicy and .RestrictPublicBuckets' >/dev/null
-            aws s3api get-bucket-encryption --bucket "$bucket" --expected-bucket-owner "$account" | jq -e '.ServerSideEncryptionConfiguration.Rules | any(.ApplyServerSideEncryptionByDefault.SSEAlgorithm == "AES256")' >/dev/null
-            echo "$purpose bucket is private, versioned and encrypted."
+            opts=(--bucket "$bucket" --expected-bucket-owner "$account" --region us-west-2 --output json)
+            echo "Checking $purpose bucket settings."
+            aws s3api get-bucket-versioning "${opts[@]}" | jq -e '.Status == "Enabled"' >/dev/null
+            aws s3api get-public-access-block "${opts[@]}" | jq -e '.PublicAccessBlockConfiguration | [.BlockPublicAcls, .IgnorePublicAcls, .BlockPublicPolicy, .RestrictPublicBuckets] | all(. == true)' >/dev/null
+            aws s3api get-bucket-encryption "${opts[@]}" | jq -e '.ServerSideEncryptionConfiguration.Rules | (type == "array" and length > 0 and all(.[]; .ApplyServerSideEncryptionByDefault.SSEAlgorithm == "AES256"))' >/dev/null
+            echo "PASS: $purpose has public access blocks, versioning and AES256 enabled."
           done
+      - name: Verify the pilot email sender separately
+        if: env.PILOT_ROLE != ''
+        shell: bash
+        run: |
+          set -euo pipefail
+          export AWS_PAGER=''
           sender=$(aws cloudformation describe-stacks --stack-name courierlifts-pilot-verifier-v1 --query "Stacks[0].Parameters[?ParameterKey=='PilotSender'].ParameterValue | [0]" --output text)
-          test -n "$sender" && test "$sender" != None
-          verified=$(aws sesv2 get-email-identity --email-identity "$sender" --query 'VerifiedForSendingStatus' --output text)
-          echo "Password email sender verified: $verified"
+          [[ -n "$sender" && "$sender" != None ]] || { echo 'Sender identity is not configured.'; exit 1; }
+          aws sesv2 get-email-identity --email-identity "$sender" --region us-west-2 --output json | jq -e '.VerifiedForSendingStatus == true' >/dev/null
+          echo 'PASS: SES sender verified. Message delivery is a separate test.'
